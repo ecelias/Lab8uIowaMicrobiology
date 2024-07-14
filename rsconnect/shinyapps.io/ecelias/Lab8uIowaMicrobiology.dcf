@@ -1,0 +1,13 @@
+name: Lab8uIowaMicrobiology
+title: Lab8uIowaMicrobiology
+username: ecelias
+account: ecelias
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 12317142
+bundleId: 8863362
+url: https://ecelias.shinyapps.io/Lab8uIowaMicrobiology/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: helperFunctions.R|README.md|server_files.R|user_interface.R
