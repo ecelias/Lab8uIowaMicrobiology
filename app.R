@@ -271,7 +271,7 @@ ui <- fluidPage(
                          p("This app is designed to lead students through the community analysis of level-5 (family level) datasets produced in DNA subway"),
                          p("Before proceeding, students should ensure the level 5 file is formatted correctly such that all unidentified taxa, chloroplasts, and mitochondria have been removed. The level 5 file should also be formatted with the first column as taxa and the subsequent columns as samples with unique sample identifiers."),
                          p("Students should also prepare a metadata file in the first column as samples and the second column as treatments.", strong("Both files should be in .csv format.")), 
-                         p("Additionally, this app should be capable for community analysis of any level 5 data"),
+                         p("Additionally, this app should be capable of community analysis for any level 5 data"),
                          p(""),
                          
                          p("This app was reconfigured for the University of Iowa MICR 2158 course based on the source materials from Huang et al., 2022 by Elizabeth Elias, an undergraduate student at the University of Iowa under the guidance of Dr. Regina McGrane, Department of Microbiology and Immunology, University of Iowa"),
