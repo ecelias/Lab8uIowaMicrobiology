@@ -25,20 +25,20 @@ library(bslib)
 # function to take the level 5 file and separate for future use
 separate_taxa <- function(x, meta){
   numSamples <<- ncol(x) - 1
-  colnames(x) [1] <- "index"
+  colnames(x)[1] <- "index"
   level_5_sep <- separate(x, "index", 
                           into = c("Kingdom", "Phylum", "Class", "Order", "Family"), sep=";")
   
   # dataset of samples with sample name, abundance and 1% threshold
   samples <- x %>% summarize_if(is.numeric,sum,na.rm = TRUE)
-  samples <- pivot_longer(samples, 1:ncol(samples), names_to="Sample",values_to ="Abundance")
-  print(colnames(samples))
+  samples <- pivot_longer(samples, 1:ncol(samples), names_to="Sample",values_to="Abundance")
   
   samples$threshold <- samples$Abundance * 0.01
   samples$threshold_rare <- min(samples$Abundance) * 0.01
   
   # dataset of treatments and how they relate to sample columns
-  treatments <- as_tibble(unique(meta[,2]))
+  treatments <- as.data.frame(unique(meta[,2]))
+
   colnames(treatments) <- c("treatment")
   for (x in 1:nrow(treatments)) {
     treatments[x, 2] <- min(which(meta$treatment == treatments[x, 1]) + 1)
@@ -61,7 +61,7 @@ separate_taxa <- function(x, meta){
   colnames(family)[1] <- "Family"
   
   # create list with separate taxa files, samples files, and treatment files
-  sepTaxa <- list(phylum = phylum, class = class, order = order, family = family, treatments = treatments, samples = samples)
+  sepTaxa <- list(phylum=phylum, class=class, order=order, family=family, treatments=treatments, samples=samples)
   
   return(sepTaxa)
 }
@@ -70,8 +70,8 @@ separate_taxa <- function(x, meta){
 createOther <- function(longdata, rarified) {
   
   # long data with "other" category
-  otherdata <- longdata
-  otherdata <- otherdata %>% mutate_if(is.factor, as.character)
+  #otherdata <- longdata %>% mutate_if(is.character, as.factor)
+  otherdata <- longdata%>%mutate(across(where(is.factor), as.character))
   
   otherrows = nrow(longdata)
   
@@ -82,28 +82,30 @@ createOther <- function(longdata, rarified) {
       if(rarified == TRUE){
         if(otherdata$Abundance[j]<samples$threshold_rare[i])
           otherdata[j,1] <- "Other"
+      } else { # raw data
+        if(otherdata$Abundance[j]<samples$threshold[i])
+        otherdata[j,1] <- "Other"
       }
-  # raw data
-  else {
-    if(otherdata$Abundance[j]<samples$threshold[i])
-      otherdata[j,1] <- "Other"
-  }
   
   # convert taxa back to a factor
-  otherdata <- otherdata %>% mutate_if(is.character, as.factor)
-  otherdata <- as_tibble(otherdata)
+  otherdata <- otherdata%>%mutate(across(where(is.factor), as.character))
+  otherdata <- as.data.frame(otherdata)
   
   # convert to wide format to sort taxa by overall abundance
-  widedata <- otherdata
-  widedata <- widedata %>% pivot_wider(names_from = "Sample", values_from = "Abundance", valuesFill = list(Abundance = 0), valuesFn = list(Abundance = sum))
+  # use values_fn to make sure all values in the Abundance column are uniquely identified
+  widedata <- otherdata %>% pivot_wider(names_from="Sample", values_from="Abundance",values_fn=list(Abundance = sum))
+  
+  # fill in any blank values in the dataframe "widedata" with 0
+  # equivalent to the unusable values_fill parameter in pivot_wider
+  widedata[is.na(widedata)] <- 0
   
   # calculate overall abundance and reorder taxa
-  widedata$Abundance <- rowSums(widedata[,-1], na.rum = TRUE)
-  widedata[[1]] <- reorder(widedata[[1]], -widedata$Abundance)
+  widedata$abundance <- rowSums(widedata[,-1], na.rm = TRUE)
+  widedata[[1]] <- reorder(widedata[[1]], -widedata$abundance)
   
   # delete overall abundance and convert back to long
-  widedata <- widedata[, -ncol(widedata)]
-  newdata <- widedata %>% pivot_longer(cols - -1, names_to = "Sample", values_to = "Abundance")
+  widedata <- widedata[,-ncol(widedata)]
+  newdata <- widedata %>% pivot_longer(cols=-1, names_to="Sample", values_to="Abundance")
   
   # add treatment data from meta data
   newdata <- merge(newdata, meta_global, by.x = "Sample", by.y = 1)
@@ -113,21 +115,22 @@ createOther <- function(longdata, rarified) {
 }
 
 # makes datasets to use in future analysis
-create_datasets <- function(sepTaxa, taxa) {
+create_datasets <- function(sep_taxa, taxa) {
   
   # select taxonomic dataset
-  x <- as_tibble(sepTaxa[[taxa]])
+  x <- as.data.frame(sep_taxa[[taxa]])
   
   # count the number of samples
-  numSamples = nrow(sepTaxa$samples)
+  num_samples=nrow(sep_taxa$samples)
   
   # samples in columns
-  columnData <- x %>% group_by_at(1) %>% summarize_if(is.numeric, sum, na.rm = TRUE)
-  columnData[[1]] <- reorder(columnData[[1]], columnData$Abundance)
+  columnData <- x %>% group_by_at(1) %>% summarize_if(is.numeric, sum, na.rm=TRUE)
+  columnData$abundance <- rowSums(columnData[,-1],na.rm=TRUE)
+  columnData[[1]] <- reorder(columnData[[1]], columnData$abundance)
   columnData <- columnData[,-ncol(columnData)]
   
   # long data
-  longData <- columnData %>% pivot_longer(cols = -1, names_to = "Sample", values_to = "Abundance")
+  longData <- columnData %>% pivot_longer(cols=-1, names_to="Sample", values_to="Abundance")
   
   # long data with other (raw) category
   longDataOther <- createOther(longData, FALSE)
@@ -136,32 +139,36 @@ create_datasets <- function(sepTaxa, taxa) {
   # create datasets to use with phyloseq
   otuMatrix <- data.matrix(subset(columnData, select = c(2:ncol(columnData))))
   rownames(otuMatrix) <- paste0("sp", 1:nrow(otuMatrix))
-  
   taxaMatrix <- as.matrix(subset(columnData, select=c(1)))
-  rownames(taxaMatrix) <- paste0("sp", 1:nrow(taxmat))
+  rownames(taxaMatrix) <- paste0("sp", 1:nrow(taxaMatrix))
   
   OTU = otu_table(otuMatrix, taxa_are_rows = TRUE)
   TAXA = tax_table(taxaMatrix)
   OTU_t <- t(OTU)
-  physeqSamples <- meta_global
+  
+  # create a dataframe of input metadata
+  # set the rownames of the dataframe as the metadata sample names
+  physeqSamples <- as.data.frame(meta_global)
   rownames(physeqSamples) <- meta_global$sample
-  physeq = phyloseq(OTU, TAXA, sample_data(as_tibble(physeqSamples)))
+
+  physeq = phyloseq(OTU, TAXA, sample_data(as.data.frame(physeqSamples)))
+
   
   # create rarefy datasets
   physeqRare <- rarefy_even_depth(physeq, rngseed = 10, sample.size = min(sample_sums(physeq)), replace = TRUE)
-  otuRarefy <- otu_table(physeq2)
+  otuRarefy <- otu_table(physeqRare)
   otuRarefy_t <- t(otuRarefy)
-  taxaRarefy <- tax_table(physeq2)
+  taxaRarefy <- tax_table(physeqRare)
   
   # pivot longer for rarified data
-  colDataRare <- as_tibble(merge(taxaRarefy, otuRarefy, by = "row.names"))
+  colDataRare <- as.data.frame(merge(taxaRarefy, otuRarefy, by="row.names"))
   
   # delete row names
   colDataRare <- colDataRare[-1]
   
   # reorder column data by overall abundance
   colDataRare$Abundance <- rowSums(colDataRare[,-1], na.rm = TRUE)
-  colDataRare[[1]] <- reorder(colDataRare[[1]], colDataRare$Abundance)
+  colDataRare[[1]] <- reorder(colDataRare[[1]], colDataRare$abundance)
   colDataRare <- colDataRare[,-ncol(colDataRare)]
   longDataRare <- colDataRare %>% pivot_longer(cols = -1, names_to = "Sample", values_to = "Abundance")
   
@@ -184,10 +191,10 @@ create_datasets <- function(sepTaxa, taxa) {
   colnames(diversityResultsRarefy) <- c("treatment", "richness", "shannon", "simpson")
   
   # create a list with datasets
-  datasetList <- list(columnData = columnData, longData = longData, longDataOther = longDataOther, OTU = OTU, OTU_t = OTU_t, physeq = physeq,
-                      otuRarefy = otuRarefy, otuRarefy_t = otuRarefy_t, physeqRare = physeqRare, colDataRare = colDataRare, 
-                      longDataRare = longDataRare, longDataRareOther = longDataRareOther, diversityResults = diversityResults,
-                      diversityResultsRarefy = diversityResultsRarefy, tax = TAXA)
+  datasetList <- list(columnData=columnData, longData=longData, longDataOther=longDataOther, OTU=OTU, OTU_t=OTU_t, physeq=physeq,
+                      otuRarefy=otuRarefy, otuRarefy_t=otuRarefy_t, physeqRare=physeqRare, colDataRare=colDataRare, 
+                      longDataRare=longDataRare, longDataRareOther=longDataRareOther, diversityResults=diversityResults,
+                      diversityResultsRarefy=diversityResultsRarefy, taxa=TAXA)
   
   return(datasetList)
   
@@ -196,10 +203,10 @@ create_datasets <- function(sepTaxa, taxa) {
 # function to find core taxa found in all treatments and samples 
 # parameters: columnData
 # returns "core" variable which contains core taxa
-core_taxa <- function(colData) {
+coreTaxa <- function(colData) {
   core <- colData %>% filter_if(is.numeric, all_vars(.>0))
-  core$Abundance <- rowSums(core[,-1], na.rm = TRUE)
-  core <- core[order(-core$Abundance)]
+  core$abundance <- rowSums(core[,-1], na.rm = TRUE)
+  core <- core[order(-core$abundance)]
   return(core)
 }
 
@@ -249,7 +256,7 @@ graphRare <- function(x, ylab, bytype) {
   rareGraph <- bind_rows(rareSample)
   rareGraph <- merge(raregraph, meta_global, by.x = "Sample", by.y = 1)
   colnames(rareGraph) <- c("Sample", "num_taxa", "num_samples", "Treatment")
-  ggplot(raregraph, aes(x = num_samples, y = num_taaxa, group = Sample, color = .data[[bytype]])) +
+  ggplot(raregraph, aes(x = num_samples, y = num_taxa, group = Sample, color = .data[[bytype]])) +
     labs(x = "Sample Size", y = ylab) + theme_bw() + geom_line(size = 1) + guides(fill = guide_legend(title = bytype))
 }
 
@@ -412,7 +419,7 @@ server <- function(input, output) {
       # convert to table format for cards
       observeEvent(input$run, {
         level_5 <- l5_upload()
-        level_5 %>% filter_all(any_vars(. != 0))
+        level_5 <- filter_all(level_5, any_vars(. != 0))
         metadata <- meta_upload()
         output$l5_contents <- renderTable({head(level_5)})
         output$meta_contents <- renderTable({metadata})
@@ -420,18 +427,18 @@ server <- function(input, output) {
         # set column names in metadata to sample and treatment
         colnames(metadata) <- c("sample", "treatment")
         
-        sepTaxa <- separate_taxa(level_5, metadata)
+        separated_taxa <- separate_taxa(level_5, metadata)
         
         # create a global dataset for treatments and samples, indicated by double arrows
-        samples <<- sepTaxa$samples
-        treatments <<- sepTaxa$treatments
+        samples <<- separated_taxa$samples
+        treatments <<- separated_taxa$treatments
         meta_global <<- metadata
         
         # create global datasets for each taxonomix level
-        Phylum <<- create_datasets(sepTaxa, "phylum")
-        Class <<- create_datasets(sepTaxa, "class")
-        Order <<- create_datasets(sepTaxa, "order")
-        Family <<- create_datasets(sepTaxa, "family")
+        Phylum <<- create_datasets(separated_taxa, "phylum")
+        Class <<- create_datasets(separated_taxa, "class")
+        Order <<- create_datasets(separated_taxa, "order")
+        Family <<- create_datasets(separated_taxa, "family")
       })
     }
     # server side functions for core taxa visualization
@@ -442,7 +449,7 @@ server <- function(input, output) {
         core_data <- reactive ({
           taxa <- input$taxon_core
           my_list <- get(taxa)
-          core <- core_taxa(my_list$ColumnData)
+          core <- coreTaxa(my_list$ColumnData)
           return(core)
         })
         
@@ -450,8 +457,8 @@ server <- function(input, output) {
         core_data_caption <- reactive({
           taxa <- input$taxon_core
           my_list <- get(taxa)
-          core <- core_taxa(my_list$ColumnData)
-          caption <- make_core_caption(my_list$ColumnData,core)
+          core <- coreTaxa(my_list$ColumnData)
+          caption <- makeCaption(my_list$ColumnData,core)
           return(caption)
         })
         # returns caption and core taxa table to output
