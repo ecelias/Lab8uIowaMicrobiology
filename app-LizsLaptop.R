@@ -10,7 +10,6 @@
 library(BiocManager)
 library(shiny)
 library(tidyverse)
-library(tidyr)
 library(ggplot2)
 library(vegan)
 library(data.table)
@@ -23,16 +22,14 @@ library(bslib)
 # define helper functions used later
 
 # function to take the level 5 file and separate for future use
-separate_taxa <- function(x, meta){
-  numSamples <<- ncol(x) - 1
-  colnames(x) [1] <- "index"
-  level_5_sep <- separate(x, "index", 
-                          into = c("Kingdom", "Phylum", "Class", "Order", "Family"), sep=";")
+separate_taxa <- function(level5, meta){
+  numSamples <<- ncol(level5) - 1
+  colnames(level5) [1] <- "index"
+  level_5_sep <- separate(level5, "index", into=c("Kingdom", "Phylum", "Class", "Order", "Family"), sep=";")
   
   # dataset of samples with sample name, abundance and 1% threshold
-  samples <- x %>% summarize_if(is.numeric,sum,na.rm = TRUE)
-  samples <- pivot_longer(samples, 1:ncol(samples), names_to="Sample",values_to ="Abundance")
-  print(colnames(samples))
+  samples <- level5 %>% summarize(across(where(is.numeric), sum, na.rm = TRUE))
+  samples <- pivot_longer(samples, 1:ncol(samples), names_to = "Sample", values_to = "Abundance")
   
   samples$threshold <- samples$Abundance * 0.01
   samples$threshold_rare <- min(samples$Abundance) * 0.01
@@ -40,9 +37,9 @@ separate_taxa <- function(x, meta){
   # dataset of treatments and how they relate to sample columns
   treatments <- as_tibble(unique(meta[,2]))
   colnames(treatments) <- c("treatment")
-  for (x in 1:nrow(treatments)) {
-    treatments[x, 2] <- min(which(meta$treatment == treatments[x, 1]) + 1)
-    treatments[x, 3] <- max(which(meta$treatment == treatments[x, 1]) + 1)
+  for (level5 in 1:nrow(treatments)) {
+    treatments[level5, 2] <- min(which(meta$treatments == treatments[level5, 1]) + 1)
+    treatments[level5, 3] <- max(which(meta$treatments == treatments[level5, 1]) + 1)
   }
   
   colnames(treatments) <- c("treatment", "min_col", "max_col")
@@ -61,9 +58,9 @@ separate_taxa <- function(x, meta){
   colnames(family)[1] <- "Family"
   
   # create list with separate taxa files, samples files, and treatment files
-  sepTaxa <- list(phylum = phylum, class = class, order = order, family = family, treatments = treatments, samples = samples)
+  separ_taxa <- list(phylum = phylum, class = class, order = order, family = family, treatments = treatments, samples = samples)
   
-  return(sepTaxa)
+  return(separ_taxa)
 }
 
 # function to create "other" category and reorder
@@ -95,11 +92,11 @@ createOther <- function(longdata, rarified) {
   
   # convert to wide format to sort taxa by overall abundance
   widedata <- otherdata
-  widedata <- widedata %>% pivot_wider(names_from = "Sample", values_from = "Abundance", valuesFill = list(Abundance = 0), valuesFn = list(Abundance = sum))
+  widedata <- widedata %>% pivot_wider(names_from = "Sample", values_from = "Abundance", valuesFill = list(Abundance=0), valuesFn = list(Abundance=sum))
   
   # calculate overall abundance and reorder taxa
-  widedata$Abundance <- rowSums(widedata[,-1], na.rum = TRUE)
-  widedata[[1]] <- reorder(widedata[[1]], -widedata$Abundance)
+  widedata$abundance <- rowSums(widedata[,-1], na.rum = TRUE)
+  widedata[[1]] <- reorder(widedata[[1]], -widedata$abundance)
   
   # delete overall abundance and convert back to long
   widedata <- widedata[, -ncol(widedata)]
@@ -113,17 +110,17 @@ createOther <- function(longdata, rarified) {
 }
 
 # makes datasets to use in future analysis
-create_datasets <- function(sepTaxa, taxa) {
+create_datasets <- function(sep_taxa, taxa) {
   
   # select taxonomic dataset
-  x <- as_tibble(sepTaxa[[taxa]])
+  x <- as_tibble(sep_taxa[[taxa]])
   
   # count the number of samples
-  numSamples = nrow(sepTaxa$samples)
+  numSamples = nrow(sep_taxa$samples)
   
   # samples in columns
-  columnData <- x %>% group_by_at(1) %>% summarize_if(is.numeric, sum, na.rm = TRUE)
-  columnData[[1]] <- reorder(columnData[[1]], columnData$Abundance)
+  columnData <- x %>% group_by_at(1) %>% summarize(across(where(is.numeric), sum, na.rm = TRUE))
+  columnData[[1]] <- reorder(columnData[[1]], columnData$abundance, FUN = sum)
   columnData <- columnData[,-ncol(columnData)]
   
   # long data
@@ -160,8 +157,8 @@ create_datasets <- function(sepTaxa, taxa) {
   colDataRare <- colDataRare[-1]
   
   # reorder column data by overall abundance
-  colDataRare$Abundance <- rowSums(colDataRare[,-1], na.rm = TRUE)
-  colDataRare[[1]] <- reorder(colDataRare[[1]], colDataRare$Abundance)
+  colDataRare$abundance <- rowSums(colDataRare[,-1], na.rm = TRUE)
+  colDataRare[[1]] <- reorder(colDataRare[[1]], colDataRare$abundance)
   colDataRare <- colDataRare[,-ncol(colDataRare)]
   longDataRare <- colDataRare %>% pivot_longer(cols = -1, names_to = "Sample", values_to = "Abundance")
   
@@ -197,9 +194,9 @@ create_datasets <- function(sepTaxa, taxa) {
 # parameters: columnData
 # returns "core" variable which contains core taxa
 core_taxa <- function(colData) {
-  core <- colData %>% filter_if(is.numeric, all_vars(.>0))
-  core$Abundance <- rowSums(core[,-1], na.rm = TRUE)
-  core <- core[order(-core$Abundance)]
+  core <- colData %>% filter(across(where(is.numeric), ~ . > 0))
+  core$abundance <- rowSums(core[,-1], na.rm = TRUE)
+  core <- core[order(-core$abundance)]
   return(core)
 }
 
@@ -221,7 +218,7 @@ uniqueTaxa <- function(level5, treatments){
   uniqueList <- list()
   
   for(i in 1:nrow(treatments)) {
-    uniqueSample <- level5 %>% select(!(treatments[i, "min_col"]:treatments[i, "max_col"])) %>% filter_if(is.numeric, all_vars(.++0))
+    uniqueSample <- level5 %>% select(!(treatments[i, "min_col"]:treatments[i, "max_col"])) %>% filter(is.numeric, all_vars(.++0))
     treatment <- as_tibble(treatments)
     
     if(nrow(uniqueSample) > 0){
@@ -249,7 +246,7 @@ graphRare <- function(x, ylab, bytype) {
   rareGraph <- bind_rows(rareSample)
   rareGraph <- merge(raregraph, meta_global, by.x = "Sample", by.y = 1)
   colnames(rareGraph) <- c("Sample", "num_taxa", "num_samples", "Treatment")
-  ggplot(raregraph, aes(x = num_samples, y = num_taaxa, group = Sample, color = .data[[bytype]])) +
+  ggplot(rareGraph, aes(x = num_samples, y = num_taaxa, group = Sample, color = .data[[bytype]])) +
     labs(x = "Sample Size", y = ylab) + theme_bw() + geom_line(size = 1) + guides(fill = guide_legend(title = bytype))
 }
 
@@ -376,11 +373,117 @@ ui <- fluidPage(
                          )
                        )
                        
+              ), 
+              tabPanel(value = "tab4", title = "Unique Taxa", 
+                       sidebarLayout(
+                         sidebarPanel(
+                           card(
+                             ## is there a way to make it so they can quickly click through all 4 taxa levels? instead of dropdown menu
+                             selectInput("taxon_unique", "Select a taxon", taxachoices), width = 2
+                           )
+                         ),
+                         mainPanel(
+                           card(
+                             h2("Unique Taxa"),
+                             p("Unique taxa are those taxa found in a single treatment."),
+                             textOutput('no_unique_captions'),
+                             uiOutput('unique_tables')
+                           )
+                         )
+                       )
+                       
               ),
+              tabPanel(value = "tab5", title = "Rarefaction", 
+                       sidebarLayout(
+                       sidebarPanel(
+                         selectInput('taxon_rarefy', 'Select a taxonomic level', taxachoices),
+                         selectInput('by_type', "Graph by:", sample_or_treatment)
+                       ),
+                       mainPanel(
+                         card(
+                           card(
+                             h2("Sample Rarefaction Curves"), 
+                             h3("Raw Data"),
+                             plotOutput('initialRarefaction', width='100%', height='400px') %>%
+                               withSpinner(color='#0dc5c1'),
+                           ),
+                           card(
+                             h3('Even rarefaction to minimum number of sequences'),
+                             plotOutput('evenRarefaction', width='100%', height='400px') %>%
+                               withSpinner(color='#0dc5c1'),
+                           )
+                         ),
+                       )
+                       )
+              ),
+              tabPanel(value = "tab6", title = "Taxonomy Bar Graphs", fluid = TRUE,
+                       sidebarLayout(
+                         sidebarPanel(
+                           selectInput('taxon_bar', 'Select a taxonomic level', taxachoices),
+                           selectInput('rawrare_bar', 'Select which data to use', raw_or_rare),
+                           selectInput('abs_rel', 'Graph by:', abs_or_rel), width = 4
+                         ),
+                         mainPanel(
+                           plotOutput('bargraph',width='100%', height='auto')
+                         )
+                       )
+              ),
+              tabPanel(value = "tab7", title = "Taxonomy Heat Map", 
+                       sidebarLayout(
+                         sidebarPanel(
+                           selectInput('taxon_heatmap', 'Select a taxonomic level', taxachoices),
+                           selectInput('rawrare_heatmap', 'Select which data to use', raw_or_rare),
+                           selectInput('abs_rel', 'Graph by:', abs_or_rel), width = 4
+                         ),
+                         mainPanel(
+                           plotOutput('heatmap', height='auto')
+                         )
+                       )
+              ),
+              tabPanel(value = "tab8", title = "Alpha Diversity", 
+                       sidebarLayout(
+                         sidebarPanel(
+                           selectInput('taxon_alpha_test', 'Select a taxonomic level', taxachoices),
+                           selectInput('rawrare_alpha', 'Select which data to use', raw_or_rare),
+                           selectInput('div_measure', 'Select diversity measure', diversity_choices)
+                         ),
+                         mainPanel(
+                           h3('Alpha Diversity'),
+                           plotOutput('alpha_plots'), 
+                           tags$hr(), 
+                           htmlOutput('alpha_caption'),
+                           textOutput('anova_caption'),
+                           tableOutput('alpha_anova'),
+                           textOutput('posthoc_caption'),
+                           tableOutput('alpha_posthoc')
+                         )
+                       )
+              ),
+              tabPanel(value = "tab9", title = "Beta Diversity", 
+                       sidebarLayout(
+                         sidebarPanel(
+                           selectInput('taxon_beta_test', 'Select a taxonomic level', taxachoices),
+                           selectInput('rawrare_beta', 'Select which data to use', raw_or_rare),
+                           selectInput('dist_measure', 'Select distance measure', distance_choices),
+                           selectInput('ord_method', 'Select ordination method', ordination_choices),
+                           selectInput('samptreat', 'Graph by:', sample_or_treatment)
+                          
+                         ),
+                         mainPanel(
+                           h3('Beta Diversity'),
+                           plotOutput('ordination_plot'), 
+                           textOutput('ordination_caption'),
+                           tags$hr(), 
+                           textOutput('permanova_caption'),
+                           tableOutput('beta_permanova')
+                         )
+                       )
+                       
+              ),
+              tabPanel(value = 'tab10', title='Helpful Info!')
   ),
   theme = bs_theme(preset = "slate")
   # close UI
-
 )
 
 # Define server logic required to draw a histogram
@@ -420,18 +523,18 @@ server <- function(input, output) {
         # set column names in metadata to sample and treatment
         colnames(metadata) <- c("sample", "treatment")
         
-        sepTaxa <- separate_taxa(level_5, metadata)
+        sep_taxa <- separate_taxa(level_5, metadata)
         
         # create a global dataset for treatments and samples, indicated by double arrows
-        samples <<- sepTaxa$samples
-        treatments <<- sepTaxa$treatments
+        samples <<- sep_taxa$samples
+        treatments <<- sep_taxa$treatments
         meta_global <<- metadata
         
         # create global datasets for each taxonomix level
-        Phylum <<- create_datasets(sepTaxa, "phylum")
-        Class <<- create_datasets(sepTaxa, "class")
-        Order <<- create_datasets(sepTaxa, "order")
-        Family <<- create_datasets(sepTaxa, "family")
+        Phylum <<- create_datasets(sep_taxa, "phylum")
+        Class <<- create_datasets(sep_taxa, "class")
+        Order <<- create_datasets(sep_taxa, "order")
+        Family <<- create_datasets(sep_taxa, "family")
       })
     }
     # server side functions for core taxa visualization
@@ -458,6 +561,249 @@ server <- function(input, output) {
         output$coreCaption <- renderUI({HTML(core_data_caption())})
         output$coreTaxa <- renderTable({core_data()},digits=0)
       }
+    }
+    # server side functions for unique taxa visualization
+    else if (input$tabs == 'tab4'){
+      if(exists('Phylum')){
+        
+        # create unique taxa output for tab 4 
+        # creates unique taxa datset based on taxonomic level selected
+        # Create a list with different objects for each treatment
+        unique_data <- reactive({
+          taxa <- input$taxon_unique
+          my_list <- get(taxa)
+          unique_taxa_list <- list()
+          unique_taxa_list <- uniqueTaxa(my_list$ColumnData, treatments)
+          
+          return(unique_taxa_list)
+        })
+        
+        # creates a list of the number of output tables based on the number of treatments 
+        # tables are labeled with treatment names
+        output$unique_tables <-
+          renderUI({
+            table_output_list <- lapply(treatments$treatment, function(i){
+              table_name <- paste0("table", i)
+              htmlOutput(tablename)
+            })
+            # generates a list of HTML tags Shiny uses to categorize each table output
+            # allows Shiny to properly render the unique tables
+            tagList(table_output_list)
+          })
+        # render the table
+        # use the "observe" command to allow reactive functions to run
+        observe({
+          unique_data_tables <- unique_data()
+          
+          if (!length(unique_data_tables))
+          {
+            output$no_unique_caption <- renderText({"There are no unique taxa."})
+          }
+          
+          for (i in 1:nrow(treatments)) {
+            local({
+              my_i <- treatments[i,1]
+              # create the caption
+              num_unique <- length(unique_data_tables[[my_i]]$treatment)
+              taxa <- input$taxon_unique
+              my_list <- get(taxa)
+              total <- nrow(my_list$ColumnData)
+              caption_title <- paste('Unique taxa in', my_i, 'treatment:', num_unique, "of", total, "taxa are unique to this treatment")
+              
+              tablename <- paste0('table', my_i)
+              output[[tablename]] <- renderTable(
+                {
+                  unique_data_tables[[my_i]]
+                },
+                caption = caption_title, caption.placement = getOption(
+                  'xtable.caption.placement', 'top'
+                )
+              )
+            })
+          }
+        })
+      }
+      
+    }
+    # server side functions for rarefaction visualization
+    else if (input$tabs == 'tab5'){
+      if(exists('Phylum')){
+        
+        # select data and create the initial rarefaction graph for tab6
+        which_initial_rarefaction <- reactive({
+          taxa <- input$taxon_rarefy
+          bytype <- input$by_type
+          my_list <- get(taxa)
+          my_data <- my_list$OTU_t
+          graphRare(rarecurve(my_data,label=FALSE,step=20), taxa, bytype)
+        })
+        output$initialRarefaction <- renderPlot({which_initial_rarefaction})
+        
+        # select data and create even rarefaction graph
+        which_even_rarefaction <- reactive ({
+          taxa <- input$taxon_rarefy
+          bytype <- input$by_type
+          my_list <- get(taxa)
+          my_data <- my_list$OTU_rarefy_t
+          graphRare(rarecurve(my_data,label=FALSE,step=20), taxa, bytype)
+        })
+        output$evenRarefaction <- renderPlot({which_even_rarefaction})
+      }
+      
+    }
+    # server side functions for bar graphs
+    else if (input$tabs == 'tab6'){
+      if(exists('Phylum')) {
+        which_bar_graph <- reactive({
+          taxa <- input$taxon_bar
+          my_list <- get(taxa)
+          if(input$rawrare_bar=='Raw Data'){
+            my_data <- my_list$longDataOther
+          }
+          else {
+            my_data <- my_list$longDataRareOther
+          }
+          if(input$abs_rel == 'Absolute Abundance'){ # absolute abundance
+            ggplot(data=my_data, aes(x=Sample, y=Abundance)) +
+              geom_bar(aes(fill=my_data[,2]), position='stack', stat='identity')+
+              labs(fill=taxa, y='Absolute Abundance')+
+              facet_grid(.~treatment, space='free_x', scales='free_x')+
+              theme(legend.position='bottom')+
+              guides(fill=guide_legend(ncol=2))
+          }
+          else{
+            ggplot(data=my_data, aes(x=Sample, y=Abundance))+
+              geom_bar(aes(fill=my_data[,2]), position='fill', stat='identity')+
+              labs(fill=taxa, y='Relative Abundance')+
+              facet_grid(.~treatment, space='free_x', scales='free_x')+
+              theme(legend.position='bottom')+
+              guides(fill=guide_legend(ncol=2))
+          }
+        })
+        # determine height of the taxonomy bar graphs in tab3
+        bar_graph_height <- reactive({
+          taxa <- input$taxa_bar
+          my_list <- get(taxa)
+          my_data <- my_list$longDataOther
+          num_taxa <- length(unique(my_data[,2]))
+          height = 300 + num_taxa*10
+          return(height)
+        })
+        # output the taxonomy bar graph 
+        observe({output$bargraph <- renderPlot({which_bar_graph()}, height = bar_graph_height())})
+      }
+    }
+    # server side functions for taxa heatmaps
+    else if (input$tabs == 'tab7'){
+      heat_map_height <- reactive({
+        taxa <- input$taxon_heatmap
+        my_list <- get(taxa)
+        my_data <- my_list$longDataOther
+        num_taxa <- nrow(unique(my_data[,1]))
+        height <- max(c(225, num_taxa*15))
+        return(height)
+      })
+      heat_map <- reactive({
+        taxa <- input$taxon_heatmap
+        my_list <- get(taxa)
+        if(input$rawrare_heatmap=='Raw Data'){
+          my_data <- my_list$longData
+          ggplot(my_data, aest(x=Sample, y=.data[[taxa]], fill=Abundance))+
+            geom_tile(color='gray')+
+            theme(legend.justification='top', axis.text.x=element_text(angle=-90, hjust=0.5))+
+            scale_x_discrete(position='top')
+        }
+      })
+      # obeserve the heatmap
+      observe({output$heatmap <- renderPlot({heatmap()}, height=heat_map_height())})
+    }
+    # server side functions for alpha diversity visualization
+    else if (input$tabs == 'tab8'){
+      # create a boxplot of alpha diversity depending on taxa, data type, and index
+      which_alpha_plot <- reactive({
+        taxa <- input$taxon_alpha_test
+        my_list <- get(taxa)
+        if(input$rawrare_alpha == 'Raw Data'){
+          my_data <- my_list$DiversityResults
+        }
+        else{
+          my_data <- my_list$DiversityResults_rarefy
+        }
+        
+        which_div <- input$div_measure
+        
+        data_median <- summarise(group_by(my_data, treatment), MD = round(median(.data[[whichdiv]]),2))
+        
+        y_label <- names(diversity_choices[grep(which_div, diversity_choices)])
+        
+        gglot(my_data, aes(x=treatment, y=.data[[which_div]]))+
+          geom_boxplot(x='Treatment', y=y_label)+
+          geom_text(data=data_median, aes(treatment, MD, label=MD), position=position_dodge(width=0.8), size = 3, vjust=-0.5)
+      })
+      output$alpha_plots <- renderPlot({which_alpha_plot})
+      
+      # close alpha diversity observe
+    }
+    # server side functions for beta diversity visualization
+    else if (input$tabs == 'tab9'){
+      # return the physeq object
+      which_phy_seq <- reactive({
+        taxa <- input$taxa_beta_test
+        my_list <- get(taxa)
+        if(input$rawrare_beta=='Raw Data'){
+          my_physeq <- my_list$physeq
+        }
+        else{
+          my_physeq <- my_list$physeq2
+        }
+        return(my_physeq)
+      })
+      
+      # make ordination data 
+      which_ordination_data <- reactive({
+        my_ord_data <- ordinate(which_phy_seq(), method=input$ord_method, distance=input$dist_measure)
+        return(my_ord_data)
+      })
+      
+      # plot the ordination
+      which_ordination_plot <- reactive ({
+        if(input$samptreat=='Sample'){
+          plot_ordination(which_phy_seq(), which_ordination_data, color = 'treatment') +
+            stat_ellipse(type='t')+
+            theme_bw()+
+            coord_fixed()
+        }
+      })
+      
+      # make the ordination caption (NMDS stress)
+      which_ordination_caption <- reactive({
+        ord_data <- which_ordination_data()
+        if(input$ord_method=='NMDS'){
+          ord_cap <- paste("NMDS results: stress =", round(ord_data$stress, digits=4))
+        }
+        # may need to include an else statement here for other ordination methods
+      })
+      
+      # plot ordination in UI
+      output$ordination_plot <- renderPlot({which_ordination_plot()})
+      output$ordination_caption <- renderText({which_ordination_caption})
+      
+      # return adonis results
+      which_permanova <- reactive({
+        taxa <- input$taxon_beta_test
+        my_list <- get(taxa)
+        if(input$rawrare_beta == 'Raw Data'){
+          perm_method <- my_list$OTU_t
+        }
+        else{
+          perm_method <- my_list$OTU_rarefy_t
+        }
+        
+        perm_out <- adonis(perm_method~treatment, data=meta_global, method=input$dist_measure)
+        return(as.data.frame(perm_out$aov.tab))
+      })
+      output$permanova_caption <- renderText({'PERMANOVA results'})
+      output$beta_permanova <- renderTable({which_permanova()}, rownames=TRUE)
     }
     # close the observe event
   })
