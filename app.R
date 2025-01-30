@@ -16,6 +16,7 @@ library(data.table)
 library(readr)
 # installing phyloseq requires Bioconductor and installation of the "igraph" package beforehand
 library(phyloseq)
+library(phyloseqCompanion)
 library(broom)
 library(shinycssloaders)
 library(bslib)
@@ -71,6 +72,11 @@ separate_taxa <- function(level5, meta){
 # function to create "other" category and reorder
 create_other <- function(longdata, rarified) {
   
+  # debugging statement
+  # if(rarified == TRUE){
+  #  print(paste("Dimensions of longdata:", nrow(longdata), "rows,", ncol(longdata), "columns"))
+  # }
+  
   # long data with "other" category
   otherdata <- longdata
   otherdata <- otherdata %>% mutate_if(is.factor, as.character)
@@ -79,7 +85,7 @@ create_other <- function(longdata, rarified) {
   
   # create "Other" category
   for(i in 1:numSamples)
-    for(j in seq(i, otherrows, numSamples))
+    for(j in seq(i, otherrows, by=numSamples))
       # rarified data
       if(rarified == TRUE){
         if(otherdata$Abundance[j]<samples$threshold_rare[i])
@@ -123,11 +129,17 @@ create_datasets <- function(sep_taxa, taxa) {
   # count the number of samples
   numSamples = nrow(sep_taxa$samples)
   
+  numeric_cols <- sapply(x, is.numeric)
+  
   # count the number of samples in columns (this will give the abundance of each sample)
-  columnData <- x %>% group_by_at(1) %>% summarize_if(is.numeric, sum, na.rm = TRUE)
+  #columnData <- x %>% group_by_at(1) %>% summarize_if(is.numeric, sum, na.rm = TRUE)
+  columnData <- x %>%
+    group_by_at(1) %>%
+    summarize(across(where(is.numeric), sum, na.rm = TRUE))
   #reorder column data by overall abundance
   columnData$abundance<-rowSums(columnData[,-1],na.rm = TRUE)
-  columnData[[1]] <- reorder(columnData[[1]], columnData$abundance)
+  columnData[[1]] <- factor(columnData[[1]], levels = columnData[[1]][order(columnData$abundance, decreasing = TRUE)])
+  # columnData[[1]] <- reorder(columnData[[1]], columnData$abundance)
   columnData <- columnData[,-ncol(columnData)]
   
   # long data
@@ -137,7 +149,7 @@ create_datasets <- function(sep_taxa, taxa) {
   longDataOther <- create_other(longData, FALSE)
   
   # create datasets to use with phyloseq
-  otuMatrix <- data.matrix(subset(columnData, select = c(2:ncol(columnData))))
+  otuMatrix <- data.matrix(subset(columnData, select=c(2:ncol(columnData))))
   rownames(otuMatrix) <- paste0("sp", 1:nrow(otuMatrix))
   
   taxaMatrix <- as.matrix(subset(columnData, select=c(1)))
@@ -156,10 +168,35 @@ create_datasets <- function(sep_taxa, taxa) {
   otuRarefy_t <- t(otuRarefy)
   taxaRarefy <- tax_table(physeqRare)
   
-  # pivot longer for rarified data
-  colDataRare <- as.data.frame(merge(taxaRarefy, otuRarefy, by = "row.names"))
+  # Align OTU identifiers between taxaRarefy and otuRarefy
+  common_otus <- intersect(rownames(taxaRarefy), colnames(otuRarefy_t))
+
+  if (length(common_otus) == 0) {
+    stop("No common OTUs found between taxaRarefy and otuRarefy. Check your data.")
+  }
+  # Subset taxaRarefy and otuRarefy to include only common OTUs
+  taxaRarefy <- taxaRarefy[common_otus, ]
+  otuRarefy_t <- otuRarefy_t[, common_otus]
   
-  # delete row names
+  # Convert taxaRarefy to a data frame
+  taxaRarefy_df <- as.data.frame(taxaRarefy)
+  rownames(taxaRarefy_df) <- common_otus
+  
+  # Convert otuRarefy_t to a data frame
+  otuRarefy_t_df <- as.data.frame(otuRarefy_t)
+  colnames(otuRarefy_t_df) <- common_otus
+  
+  # Transpose otuRarefy_t_df to have OTUs as rows and samples as columns
+  otuRarefy_t_df <- t(otuRarefy_t_df)
+  
+  # Merge taxaRarefy_df and otuRarefy_t_df
+  colDataRare <- merge(taxaRarefy_df, otuRarefy_t_df, by = "row.names")
+  
+  # Debugging: Print the result of the merge
+  # print("Result of merge:")
+  # print(colDataRare)
+  
+  # Delete row names
   colDataRare <- colDataRare[-1]
   
   # reorder column data by overall abundance
@@ -245,7 +282,8 @@ graphRare <- function(x, ylab, bytype) {
   # Write values for each sample from a rarecurve function into a list
   # Sample names obtained from "samples" dataframe
   for(i in 1:numSamples) {
-    rareSample[[i]] <- cbind(samples[i,1], as.data.frame(x[[i]]), attributes((x[[i]])$Subsample))
+    # rareSample[[i]] <- cbind(samples[i,1], as.data.frame(x[[i]]), attributes((x[[i]])$Subsample))
+    rareSample[[i]] <- cbind(samples[i,1], as.data.frame(x[[i]]), attr(x[[i]], "Subsample"))
   }
   
   # Bind the data together from the "rareSample" list
@@ -407,19 +445,17 @@ ui <- fluidPage(
                            selectInput('by_type', "Graph by:", sample_or_treatment)
                          ),
                          mainPanel(
-                           card(
                              card(
                                h2("Sample Rarefaction Curves"), 
                                h3("Raw Data"),
-                               plotOutput('which_initial_rarefaction', width='100%', height='400px') %>%
-                                 withSpinner(color='#0dc5c1'),
+                               plotOutput('initial_rarefaction', width='100%', height='400px') %>%
+                                 withSpinner(color='#0dc5c1')
                              ),
                              card(
                                h3('Even rarefaction to minimum number of sequences'),
-                               plotOutput('which_even_rarefaction', width='100%', height='400px') %>%
-                                 withSpinner(color='#0dc5c1'),
+                               plotOutput('even_rarefaction', width='100%', height='400px') %>%
+                                 withSpinner(color='#0dc5c1')
                              )
-                           ),
                          )
                        )
               ),
@@ -635,25 +671,32 @@ server <- function(input, output) {
     # server side functions for rarefaction visualization
     else if (input$tabs == 'tab5'){
       if(exists('Phylum')){
-        # select data and create the initial rarefaction graph for tab 5
+        # select taxa level data and create the initial rarefaction graph for tab 5
         which_initial_rarefaction <- reactive({
           taxa <- input$taxon_rarefy
-          bytype <- input$by_type
+          by_type <- input$by_type
           my_list <- get(taxa)
           my_data <- my_list$OTU_t
-          graphRare(rarecurve(my_data,label=FALSE,step=20), taxa, by_type)
+          
+          # Coerce the transposed OTU table into a matrix. rarecurve() only 
+          # accepts matrix-like objects and will not accept an OTU table
+          my_data <- otu.matrix(my_data)
+          rarecurveData <- rarecurve(my_data, step=20, sample=20, xlab="Sample Size", ylab="Species", label=FALSE, tidy=FALSE)
+          graphRare(rarecurveData, taxa, by_type)
         })
-        output$initialRarefaction <- renderPlot({which_initial_rarefaction()})
+        output$initial_rarefaction <- renderPlot({which_initial_rarefaction()})
         
         # select data and create even rarefaction graph
         which_even_rarefaction <- reactive ({
-          taxa2 <- input$taxon_rarefy
-          bytype <- input$by_type
+          taxa <- input$taxon_rarefy
+          by_type <- input$by_type
           my_list <- get(taxa)
           my_data <- my_list$otuRarefy_t
-          graphRare(rarecurve(my_data,label=FALSE,step=20), taxa, bytype)
+          my_data <- otu.matrix(my_data)
+          rarecurveData <- rarecurve(my_data, step=20, sample=20, xlab="Sample Size", ylab="Species", label=FALSE, tidy=FALSE)
+          graphRare(rarecurveData, taxa, by_type)
         })
-        output$evenRarefaction <- renderPlot({which_even_rarefaction()})
+        output$even_rarefaction <- renderPlot({which_even_rarefaction()})
       }
       
     }
