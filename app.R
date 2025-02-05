@@ -784,16 +784,18 @@ server <- function(input, output) {
         else{
           my_data <- my_list$diversityResultsRarefy
         }
-        
+
         which_div <- input$div_measure
         
         # coerce "my_data" into a dataframe so that the group_by function
         # is able to use it, group_by() only accepts tbl data type
+        # Additionally, ensure data is numeric 
         my_data = as.data.frame(my_data)
+        my_data[[which_div]] <- as.numeric(my_data[[which_div]])
         
         
         data_median <- summarise(group_by(my_data, treatment), 
-                                 MD = round(median(.data[[which_div]]),2))
+                                 MD = round(median(as.numeric(.data[[which_div]])), 2))
         print(data_median)
         
         y_label <- names(diversity_choices)[grep(which_div, diversity_choices)]
@@ -817,6 +819,12 @@ server <- function(input, output) {
             }
           
             which_div <- input$div_measure
+            
+            # coerce "my_data" into a dataframe so that the group_by function
+            # is able to use it, group_by() only accepts tbl data type
+            # Additionally, ensure data is numeric 
+            my_data = as.data.frame(my_data)
+            my_data[[which_div]] <- as.numeric(my_data[[which_div]])
             
             result <- t.test(my_data[[which_div]]~my_data[,1])
             
