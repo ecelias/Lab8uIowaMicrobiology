@@ -214,6 +214,8 @@ create_datasets <- function(sep_taxa, taxa) {
   simpson <- diversity(OTU_t, index = "simpson")
   diversityResults <- cbind(meta_global[,2:ncol(meta_global)], richness, shannon, simpson)
   
+  colnames(diversityResults) <- c("treatment", "richness", "shannon", "simpson")
+  
   # create dataset with diversity indices based on rarefy data
   richnessRarefy <- specnumber(otuRarefy_t)
   shannonRarefy <- diversity(otuRarefy_t, index = "shannon")
@@ -492,7 +494,7 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            h3('Alpha Diversity'),
-                           plotOutput('which_alpha_plot'), 
+                           plotOutput('alpha_plots'), 
                            tags$hr(), 
                            htmlOutput('alpha_caption'),
                            textOutput('anova_caption'),
@@ -785,13 +787,20 @@ server <- function(input, output) {
         
         which_div <- input$div_measure
         
-        data_median <- summarise(group_by(my_data, treatment), MD = round(median(.data[[which_div]]),2))
+        # coerce "my_data" into a dataframe so that the group_by function
+        # is able to use it, group_by() only accepts tbl data type
+        my_data = as.data.frame(my_data)
+        
+        
+        data_median <- summarise(group_by(my_data, treatment), 
+                                 MD = round(median(.data[[which_div]]),2))
+        print(data_median)
         
         y_label <- names(diversity_choices)[grep(which_div, diversity_choices)]
         
         ggplot(my_data,aes(x=treatment,y=.data[[which_div]]))+
           geom_boxplot()+theme_bw()+labs(x="Treatment",y=y_label)+
-          geom_text(data = data_median,aes(treatment, MD, label = MD), 
+          geom_text(data = data_median, aes(treatment, MD, label = MD), 
                     position = position_dodge(width = 0.8), size = 3, vjust = -0.5)
         })
         output$alpha_plots <- renderPlot({which_alpha_plot()})
@@ -808,6 +817,7 @@ server <- function(input, output) {
             }
           
             which_div <- input$div_measure
+            
             result <- t.test(my_data[[which_div]]~my_data[,1])
             
             result_t <- round(result$statistic,digits=2)
