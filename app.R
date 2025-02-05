@@ -793,10 +793,10 @@ server <- function(input, output) {
         my_data = as.data.frame(my_data)
         my_data[[which_div]] <- as.numeric(my_data[[which_div]])
         
-        
-        data_median <- summarise(group_by(my_data, treatment), 
-                                 MD = round(median(as.numeric(.data[[which_div]])), 2))
-        print(data_median)
+        # for each treatment, calculate the median of whatever diversity measure the user selects
+        # then create a tbl with the treatments and the median of the div. measure
+        MD = round(median(as.numeric(my_data[[which_div]])), 2)
+        data_median <- summarise(group_by(my_data, treatment), MD)
         
         y_label <- names(diversity_choices)[grep(which_div, diversity_choices)]
         
@@ -894,13 +894,14 @@ server <- function(input, output) {
     else if (input$tabs == 'tab9'){
       # return the physeq object
       which_phy_seq <- reactive({
-        taxa <- input$taxa_beta_test
+        taxa <- input$taxon_beta_test
         my_list <- get(taxa)
         if(input$rawrare_beta=='Raw Data'){
           my_physeq <- my_list$physeq
+          print(my_physeq)
         }
         else{
-          my_physeq <- my_list$physeq2
+          my_physeq <- my_list$physeqRare
         }
         return(my_physeq)
       })
@@ -914,7 +915,12 @@ server <- function(input, output) {
       # plot the ordination
       which_ordination_plot <- reactive ({
         if(input$samptreat=='Sample'){
-          plot_ordination(which_phy_seq(), which_ordination_data, color = 'treatment') +
+          plot_ordination(which_phy_seq(), which_ordination_data(), color = 'treatment') +
+            stat_ellipse(type='t')+
+            theme_bw()+
+            coord_fixed()
+        } else if (input$samptreat=='Treatment'){
+          plot_ordination(which_phy_seq(), which_ordination_data(), color = 'sample') +
             stat_ellipse(type='t')+
             theme_bw()+
             coord_fixed()
@@ -932,7 +938,7 @@ server <- function(input, output) {
       
       # plot ordination in UI
       output$ordination_plot <- renderPlot({which_ordination_plot()})
-      output$ordination_caption <- renderText({which_ordination_caption})
+      output$ordination_caption <- renderText({which_ordination_caption()})
       
       # return adonis results
       which_permanova <- reactive({
@@ -942,11 +948,20 @@ server <- function(input, output) {
           perm_method <- my_list$OTU_t
         }
         else{
-          perm_method <- my_list$OTU_rarefy_t
+          perm_method <- my_list$otuRarefy_t
         }
         
-        perm_out <- adonis(perm_method~treatment, data=meta_global, method=input$dist_measure)
-        return(as.data.frame(perm_out$aov.tab))
+        # adonis depracated, replaced with adonis2
+        #perm_out <- adonis2(perm_method~treatment, data=meta_global, method=input$dist_measure)
+        
+        whichDist <- input$dist_measure
+        adonisFormula <- as.formula(paste(whichDist, "~ treatment"))
+        permaOut <- adonis2(perm_method ~ treatment, data = meta_global, method=whichDist)
+
+        permanovaResults <- as.data.frame(permaOut)
+        print(permanovaResults)
+        rownames(permanovaResults)[1] <- "Treatment"
+        return(permanovaResults)
       })
       output$permanova_caption <- renderText({'PERMANOVA results'})
       output$beta_permanova <- renderTable({which_permanova()}, rownames=TRUE)
