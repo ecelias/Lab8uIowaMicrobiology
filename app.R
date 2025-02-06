@@ -23,12 +23,12 @@ library(bslib)
 
 # define helper functions to be utilized in front and back end operations
 # function to take the level 5 file and separate for future use
-separate_taxa <- function(level5, meta){
+separateTaxa <- function(level5, meta){
   numSamples <<- ncol(level5) - 1
   # sets the first column of the "level 5" taxonomy file to the index
   colnames(level5)[1] <- "index" 
   # separates the data within the level 5 file using ";" as the delimiter
-  level_5_sep <- separate(level5, "index", into=c("Kingdom", "Phylum", "Class", "Order", "Family"), sep=";")
+  level5Sep <- separate(level5, "index", into=c("Kingdom", "Phylum", "Class", "Order", "Family"), sep=";")
   
   # dataset of samples with sample name, abundance and 1% threshold
   # uses "na.rm=TRUE to remove any null values"
@@ -36,7 +36,7 @@ separate_taxa <- function(level5, meta){
   samples <- pivot_longer(samples, 1:ncol(samples), names_to = "Sample", values_to = "Abundance")
   
   samples$threshold <- samples$Abundance * 0.01
-  samples$threshold_rare <- min(samples$Abundance) * 0.01
+  samples$thresholdRare <- min(samples$Abundance) * 0.01
   
   # dataset of treatments and how they relate to sample columns
   treatments <- as.data.frame(unique(meta[,2]))
@@ -51,26 +51,26 @@ separate_taxa <- function(level5, meta){
   colnames(treatments) <- c("treatment", "min_col", "max_col")
   
   # create different datasets based on taxonomy
-  phylum <- cbind(paste(level_5_sep$Kingdom, level_5_sep$Phylum), level_5_sep[,6:ncol(level_5_sep)])
+  phylum <- cbind(paste(level5Sep$Kingdom, level5Sep$Phylum), level5Sep[,6:ncol(level5Sep)])
   colnames(phylum)[1] <- "Phylum"
   
-  class <- cbind(paste(level_5_sep$Kingdom, level_5_sep$Phylum, level_5_sep$Class), level_5_sep[,6:ncol(level_5_sep)])
+  class <- cbind(paste(level5Sep$Kingdom, level5Sep$Phylum, level5Sep$Class), level5Sep[,6:ncol(level5Sep)])
   colnames(class)[1] <- "Class"
   
-  order <- cbind(paste(level_5_sep$Kingdom, level_5_sep$Phylum, level_5_sep$Class, level_5_sep$Order), level_5_sep[,6:ncol(level_5_sep)])
+  order <- cbind(paste(level5Sep$Kingdom, level5Sep$Phylum, level5Sep$Class, level5Sep$Order), level5Sep[,6:ncol(level5Sep)])
   colnames(order)[1] <- "Order"
   
-  family <- cbind(paste(level_5_sep$Kingdom, level_5_sep$Phylum, level_5_sep$Class, level_5_sep$Order, level_5_sep$Family), level_5_sep[,6:ncol(level_5_sep)])
+  family <- cbind(paste(level5Sep$Kingdom, level5Sep$Phylum, level5Sep$Class, level5Sep$Order, level5Sep$Family), level5Sep[,6:ncol(level5Sep)])
   colnames(family)[1] <- "Family"
   
   # create list with separate taxa files, samples files, and treatment files
   # to access an item in this list: sep_taxa[[ITEM_NAME]] --> i.e sep_taxa[[phylum]]
-  sep_taxa <- list(phylum=phylum, class=class, order=order, family=family, treatments=treatments, samples=samples)
-  return(sep_taxa)
+  sepTaxa <- list(phylum=phylum, class=class, order=order, family=family, treatments=treatments, samples=samples)
+  return(sepTaxa)
 }
 
 # function to create "other" category and reorder
-create_other <- function(longdata, rarified) {
+createOther <- function(longdata, rarified) {
   
   # debugging statement
   # if(rarified == TRUE){
@@ -88,7 +88,7 @@ create_other <- function(longdata, rarified) {
     for(j in seq(i, otherrows, by=numSamples))
       # rarified data
       if(rarified == TRUE){
-        if(otherdata$Abundance[j]<samples$threshold_rare[i])
+        if(otherdata$Abundance[j]<samples$thresholdRare[i])
           otherdata[j,1] <- "Other"
       }
   # raw data
@@ -103,7 +103,10 @@ create_other <- function(longdata, rarified) {
   
   # convert to wide format to sort taxa by overall abundance
   widedata <- otherdata
-  widedata <- widedata %>% pivot_wider(names_from = "Sample", values_from = "Abundance", values_fill = list(Abundance = 0), values_fn = list(Abundance = sum))
+  widedata <- widedata %>% pivot_wider(names_from = "Sample", 
+                                       values_from = "Abundance", 
+                                       values_fill = list(Abundance = 0), 
+                                       values_fn = list(Abundance = sum))
   
   # calculate overall abundance and reorder taxa
   widedata$abundance <- rowSums(widedata[,-1], na.rm = TRUE)
@@ -114,20 +117,20 @@ create_other <- function(longdata, rarified) {
   newdata <- widedata %>% pivot_longer(cols = -1, names_to = "Sample", values_to = "Abundance")
   
   # add treatment data from meta data
-  newdata <- merge(newdata, meta_global, by.x = "Sample", by.y = 1)
+  newdata <- merge(newdata, metaGlobal, by.x = "Sample", by.y = 1)
   names(newdata)[ncol(newdata)] <- "treatment"
   
   return(newdata)
 }
 
 # makes datasets to use in future analysis
-create_datasets <- function(sep_taxa, taxa) {
+createDatasets <- function(sepTaxa, taxa) {
   
   # select taxonomic dataset
-  x <- as.data.frame(sep_taxa[[taxa]])
+  x <- as.data.frame(sepTaxa[[taxa]])
   
   # count the number of samples
-  numSamples = nrow(sep_taxa$samples)
+  numSamples = nrow(sepTaxa$samples)
   
   numeric_cols <- sapply(x, is.numeric)
   
@@ -137,7 +140,7 @@ create_datasets <- function(sep_taxa, taxa) {
     group_by_at(1) %>%
     summarize(across(where(is.numeric), sum, na.rm = TRUE))
   #reorder column data by overall abundance
-  columnData$abundance<-rowSums(columnData[,-1],na.rm = TRUE)
+  columnData$abundance<-rowSums(columnData[,-1], na.rm = TRUE)
   columnData[[1]] <- factor(columnData[[1]], levels = columnData[[1]][order(columnData$abundance, decreasing = TRUE)])
   # columnData[[1]] <- reorder(columnData[[1]], columnData$abundance)
   columnData <- columnData[,-ncol(columnData)]
@@ -146,7 +149,7 @@ create_datasets <- function(sep_taxa, taxa) {
   longData <- columnData %>% pivot_longer(cols = -1, names_to = "Sample", values_to = "Abundance")
   
   # long data with other (raw) category
-  longDataOther <- create_other(longData, FALSE)
+  longDataOther <- createOther(longData, FALSE)
   
   # create datasets to use with phyloseq
   otuMatrix <- data.matrix(subset(columnData, select=c(2:ncol(columnData))))
@@ -158,8 +161,8 @@ create_datasets <- function(sep_taxa, taxa) {
   OTU = otu_table(otuMatrix, taxa_are_rows=TRUE)
   TAX = tax_table(taxaMatrix)
   OTU_t <- t(OTU)
-  physeqSamples <- meta_global
-  rownames(physeqSamples) <- meta_global$sample
+  physeqSamples <- metaGlobal
+  rownames(physeqSamples) <- metaGlobal$sample
   physeq = phyloseq(OTU, TAX, sample_data(as.data.frame(physeqSamples)))
   
   # create rarefy datasets
@@ -169,22 +172,22 @@ create_datasets <- function(sep_taxa, taxa) {
   taxaRarefy <- tax_table(physeqRare)
   
   # Align OTU identifiers between taxaRarefy and otuRarefy
-  common_otus <- intersect(rownames(taxaRarefy), colnames(otuRarefy_t))
+  commonOTUs <- intersect(rownames(taxaRarefy), colnames(otuRarefy_t))
 
-  if (length(common_otus) == 0) {
+  if (length(commonOTUs) == 0) {
     stop("No common OTUs found between taxaRarefy and otuRarefy. Check your data.")
   }
   # Subset taxaRarefy and otuRarefy to include only common OTUs
-  taxaRarefy <- taxaRarefy[common_otus, ]
-  otuRarefy_t <- otuRarefy_t[, common_otus]
+  taxaRarefy <- taxaRarefy[commonOTUs, ]
+  otuRarefy_t <- otuRarefy_t[, commonOTUs]
   
   # Convert taxaRarefy to a data frame
   taxaRarefy_df <- as.data.frame(taxaRarefy)
-  rownames(taxaRarefy_df) <- common_otus
+  rownames(taxaRarefy_df) <- commonOTUs
   
   # Convert otuRarefy_t to a data frame
   otuRarefy_t_df <- as.data.frame(otuRarefy_t)
-  colnames(otuRarefy_t_df) <- common_otus
+  colnames(otuRarefy_t_df) <- commonOTUs
   
   # Transpose otuRarefy_t_df to have OTUs as rows and samples as columns
   otuRarefy_t_df <- t(otuRarefy_t_df)
@@ -206,13 +209,13 @@ create_datasets <- function(sep_taxa, taxa) {
   longDataRare <- colDataRare %>% pivot_longer(cols = -1, names_to = "Sample", values_to = "Abundance")
   
   # long data (rarified) with other
-  longDataRareOther <- create_other(longDataRare, TRUE)
+  longDataRareOther <- createOther(longDataRare, TRUE)
   
   # create dataset with diversity indices
   richness <- specnumber(OTU_t)
   shannon <- diversity(OTU_t, index = "shannon")
   simpson <- diversity(OTU_t, index = "simpson")
-  diversityResults <- cbind(meta_global[,2:ncol(meta_global)], richness, shannon, simpson)
+  diversityResults <- cbind(metaGlobal[,2:ncol(metaGlobal)], richness, shannon, simpson)
   
   colnames(diversityResults) <- c("treatment", "richness", "shannon", "simpson")
   
@@ -220,16 +223,20 @@ create_datasets <- function(sep_taxa, taxa) {
   richnessRarefy <- specnumber(otuRarefy_t)
   shannonRarefy <- diversity(otuRarefy_t, index = "shannon")
   simpsonRarefy <- diversity(otuRarefy_t, index = "simpson")
-  diversityResultsRarefy <- cbind(meta_global[,2:ncol(meta_global)], richnessRarefy, shannonRarefy, simpsonRarefy)
+  diversityResultsRarefy <- cbind(metaGlobal[,2:ncol(metaGlobal)], richnessRarefy, shannonRarefy, simpsonRarefy)
   
   # rename columns of rarefied diversity results to be consisted with raw diversity results
   colnames(diversityResultsRarefy) <- c("treatment", "richness", "shannon", "simpson")
   
   # create a list with datasets
-  datasetList <- list(columnData = columnData, longData = longData, longDataOther = longDataOther, OTU = OTU, OTU_t = OTU_t, physeq = physeq,
-                      otuRarefy = otuRarefy, otuRarefy_t = otuRarefy_t, physeqRare = physeqRare, colDataRare = colDataRare, 
-                      longDataRare = longDataRare, longDataRareOther = longDataRareOther, diversityResults = diversityResults,
-                      diversityResultsRarefy = diversityResultsRarefy, taxa = TAX)
+  datasetList <- list(columnData = columnData, longData = longData, 
+                      longDataOther = longDataOther, OTU = OTU, OTU_t = OTU_t, 
+                      physeq = physeq, otuRarefy = otuRarefy, taxa = TAX,
+                      otuRarefy_t = otuRarefy_t, physeqRare = physeqRare, 
+                      colDataRare = colDataRare, longDataRare = longDataRare, 
+                      longDataRareOther = longDataRareOther, 
+                      diversityResults = diversityResults,
+                      diversityResultsRarefy = diversityResultsRarefy)
   
   return(datasetList)
   
@@ -238,7 +245,7 @@ create_datasets <- function(sep_taxa, taxa) {
 # function to find core taxa found in all treatments and samples 
 # parameters: columnData
 # returns "core" variable which contains core taxa
-core_taxa <- function(colData) {
+coreTaxa <- function(colData) {
   core <- colData %>% filter_if(is.numeric, all_vars(.>0))
   core$abundance <- rowSums(core[,-1], na.rm = TRUE)
   core <- core[order(-core$abundance)]
@@ -248,8 +255,8 @@ core_taxa <- function(colData) {
 # create a title for Core Taxa table using metadata, core, and columnData
 # parameters: dataframe (columnData) and core variable
 # returns: a string with the defined caption
-core_caption <- function(df, core) {
-  treatment <- paste(unique(meta_global$treatment), collapse = "/")
+coreCaption <- function(df, core) {
+  treatment <- paste(unique(metaGlobal$treatment), collapse = "/")
   numCore = nrow(core)
   total = nrow(df)
   caption = paste("<p><b>Core taxa in", treatment, "treatments:", numCore, "of", total, "taxa are shared between treatments</b><p>")
@@ -259,22 +266,22 @@ core_caption <- function(df, core) {
 # function to find taxa unique to a treatment
 # parameters: columnData, treatments table
 # returns: list of unique treatments
-unique_taxa <- function(level5, treatments){
-  unique_list <- list()
+uniqueTaxa <- function(level5, treatments){
+  uniqueList <- list()
   
   for(i in 1:nrow(treatments)) {
-    unique_sample <- level5 %>% select(!(treatments[i, "min_col"]:treatments[i, "max_col"])) %>% filter_if(is.numeric, all_vars(.==0))
+    uniqueSample <- level5 %>% select(!(treatments[i, "min_col"]:treatments[i, "max_col"])) %>% filter_if(is.numeric, all_vars(.==0))
     treatment <- as_tibble(treatments)
     
-    if(nrow(unique_sample) > 0){
-      unique_list[[i]] <- cbind(treatment[i,1], unique_sample[,1])
+    if(nrow(uniqueSample) > 0){
+      uniqueList[[i]] <- cbind(treatment[i,1], uniqueSample[,1])
       
       # add the names to the objects in the "uniqueList" to allow creation of other tables later
       name <- treatment[i, 1]
-      names(unique_list)[i] <- name
+      names(uniqueList)[i] <- name
     }
   }
-  return(unique_list)
+  return(uniqueList)
 }
 
 # function to graph rarefaction curve with ggplot2
@@ -290,7 +297,7 @@ graphRare <- function(x, ylab, bytype) {
   
   # Bind the data together from the "rareSample" list
   rareGraph <- bind_rows(rareSample)
-  rareGraph <- merge(rareGraph, meta_global, by.x = "Sample", by.y = 1)
+  rareGraph <- merge(rareGraph, metaGlobal, by.x = "Sample", by.y = 1)
   colnames(rareGraph) <- c("Sample", "num_taxa", "num_samples", "Treatment")
   ggplot(rareGraph, aes(x = num_samples, y = num_taxa, group = Sample, color = .data[[bytype]])) +
     labs(x = "Sample Size", y = ylab) + theme_bw() + geom_line(size = 1) + guides(fill = guide_legend(title = bytype))
@@ -299,12 +306,12 @@ graphRare <- function(x, ylab, bytype) {
 # create options for drop down menus used in UI
 # drop down choices will be used to determine visualizations selected in certain tabs
 taxachoices <- list("Phylum", "Class", "Order", "Family")
-raw_or_rare <- list("Raw Data", "Rarified Data")
-abs_or_rel <- list("Absolute Abundance", "Relative Abundance")
-sample_or_treatment <- list("Sample", "Treatment")
-diversity_choices <- list("Richness"="richness", "Shannon Diversity"="shannon", "Simpson Diversity"="simpson")
-distance_choices <- list("Jaccard" = "jaccard", "Bray-Curtis" = "bray", "Morisita-Horn" = "horn")
-ordination_choices <- list("NMDS", "PCoA")
+rawOrRare <- list("Raw Data", "Rarified Data")
+absOrRel <- list("Absolute Abundance", "Relative Abundance")
+sampleOrTreatment <- list("Sample", "Treatment")
+diversityChoices <- list("Richness"="richness", "Shannon Diversity"="shannon", "Simpson Diversity"="simpson")
+distanceChoices <- list("Jaccard" = "jaccard", "Bray-Curtis" = "bray", "Morisita-Horn" = "horn")
+ordinationChoices <- list("NMDS", "PCoA")
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -365,7 +372,7 @@ ui <- fluidPage(
                                    card_body(
                                      tags$i("Ensure the first column is the combined taxa (including kingdom) separated by semi-colons. The remaining columns should contain the abundance data for each sample. The 6 most abundant taxa will be displayed below."),
                                      tags$hr(),
-                                     tableOutput("level_5_contents"),
+                                     tableOutput("level5Contents"),
                                      tags$hr()
                                    )
                                  ),
@@ -378,7 +385,7 @@ ui <- fluidPage(
                                    card_body(
                                      tags$i("Ensure the first column lists the samples and the second column lists the treatments for each sample. Your metadata is displayed below."),
                                      tags$hr(),
-                                     tableOutput("metadata_contents"),
+                                     tableOutput("metadataContents"),
                                      tags$hr()
                                    )
                                  )
@@ -407,7 +414,7 @@ ui <- fluidPage(
                          sidebarPanel(
                            card(
                              ## is there a way to make it so they can quickly click through all 4 taxa levels? instead of dropdown menu
-                             selectInput("taxon_core", "Select a taxon", taxachoices), width = 2
+                             selectInput("taxonCore", "Select a taxon", taxachoices), width = 2
                            )
                          ),
                          mainPanel(
@@ -426,15 +433,15 @@ ui <- fluidPage(
                          sidebarPanel(
                            card(
                              ## is there a way to make it so they can quickly click through all 4 taxa levels? instead of dropdown menu
-                             selectInput("taxon_unique", "Select a taxon", taxachoices), width = 2
+                             selectInput("taxonUnique", "Select a taxon", taxachoices), width = 2
                            )
                          ),
                          mainPanel(
                            card(
                              h2("Unique Taxa"),
                              p("Unique taxa are those taxa found in a single treatment."),
-                             textOutput('no_unique_captions'),
-                             uiOutput('unique_tables')
+                             textOutput('noUniqueCaptions'),
+                             uiOutput('uniqueTables')
                            )
                          )
                        )
@@ -443,19 +450,19 @@ ui <- fluidPage(
               tabPanel(value = "tab5", title = "Rarefaction", 
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxon_rarefy', 'Select a taxonomic level', taxachoices),
-                           selectInput('by_type', "Graph by:", sample_or_treatment)
+                           selectInput('taxonRarefy', 'Select a taxonomic level', taxachoices),
+                           selectInput('byType', "Graph by:", sampleOrTreatment)
                          ),
                          mainPanel(
                              card(
                                h2("Sample Rarefaction Curves"), 
                                h3("Raw Data"),
-                               plotOutput('initial_rarefaction', width='100%', height='400px') %>%
+                               plotOutput('initialRarefaction', width='100%', height='400px') %>%
                                  withSpinner(color='#0dc5c1')
                              ),
                              card(
                                h3('Even rarefaction to minimum number of sequences'),
-                               plotOutput('even_rarefaction', width='100%', height='400px') %>%
+                               plotOutput('evenRarefaction', width='100%', height='400px') %>%
                                  withSpinner(color='#0dc5c1')
                              )
                          )
@@ -464,9 +471,9 @@ ui <- fluidPage(
               tabPanel(value = "tab6", title = "Taxonomy Bar Graphs", fluid = TRUE,
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxon_bar', 'Select a taxonomic level', taxachoices),
-                           selectInput('rawrare_bar', 'Select which data to use', raw_or_rare),
-                           selectInput('abs_rel', 'Graph by:', abs_or_rel), width = 4
+                           selectInput('taxonBar', 'Select a taxonomic level', taxachoices),
+                           selectInput('rawrareBar', 'Select which data to use', rawOrRare),
+                           selectInput('absRel', 'Graph by:', absOrRel), width = 4
                          ),
                          mainPanel(
                            plotOutput('bargraph',width='100%', height='auto')
@@ -476,9 +483,9 @@ ui <- fluidPage(
               tabPanel(value = "tab7", title = "Taxonomy Heat Map", 
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxon_heatmap', 'Select a taxonomic level', taxachoices),
-                           selectInput('rawrare_heatmap', 'Select which data to use', raw_or_rare),
-                           selectInput('abs_rel', 'Graph by:', abs_or_rel), width = 4
+                           selectInput('taxonHeatmap', 'Select a taxonomic level', taxachoices),
+                           selectInput('rawrareHeatmap', 'Select which data to use', rawOrRare),
+                           selectInput('absRel', 'Graph by:', absOrRel), width = 4
                          ),
                          mainPanel(
                            plotOutput('heatmap', height='auto')
@@ -488,39 +495,39 @@ ui <- fluidPage(
               tabPanel(value = "tab8", title = "Alpha Diversity", 
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxon_alpha_test', 'Select a taxonomic level', taxachoices),
-                           selectInput('rawrare_alpha', 'Select which data to use', raw_or_rare),
-                           selectInput('div_measure', 'Select diversity measure', diversity_choices)
+                           selectInput('taxonAlphaTest', 'Select a taxonomic level', taxachoices),
+                           selectInput('rawrareAlpha', 'Select which data to use', rawOrRare),
+                           selectInput('divMeasure', 'Select diversity measure', diversityChoices)
                          ),
                          mainPanel(
                            h3('Alpha Diversity'),
-                           plotOutput('alpha_plots'), 
+                           plotOutput('alphaPlots'), 
                            tags$hr(), 
-                           htmlOutput('alpha_caption'),
-                           textOutput('anova_caption'),
-                           tableOutput('alpha_anova'),
-                           textOutput('posthoc_caption'),
-                           tableOutput('alpha_posthoc')
+                           htmlOutput('alphaCaption'),
+                           textOutput('anovaCaption'),
+                           tableOutput('alphaAnova'),
+                           textOutput('posthocCaption'),
+                           tableOutput('alphaPosthoc')
                          )
                        )
               ),
               tabPanel(value = "tab9", title = "Beta Diversity", 
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxon_beta_test', 'Select a taxonomic level', taxachoices),
-                           selectInput('rawrare_beta', 'Select which data to use', raw_or_rare),
-                           selectInput('dist_measure', 'Select distance measure', distance_choices),
-                           selectInput('ord_method', 'Select ordination method', ordination_choices),
-                           selectInput('samptreat', 'Graph by:', sample_or_treatment)
+                           selectInput('taxonBetaTest', 'Select a taxonomic level', taxachoices),
+                           selectInput('rawrareBeta', 'Select which data to use', rawOrRare),
+                           selectInput('distMeasure', 'Select distance measure', distanceChoices),
+                           selectInput('ordMethod', 'Select ordination method', ordinationChoices),
+                           selectInput('samptreat', 'Graph by:', sampleOrTreatment)
                            
                          ),
                          mainPanel(
                            h3('Beta Diversity'),
-                           plotOutput('ordination_plot'), 
-                           textOutput('ordination_caption'),
+                           plotOutput('ordinationPlot'), 
+                           textOutput('ordinationCaption'),
                            tags$hr(), 
-                           textOutput('permanova_caption'),
-                           tableOutput('beta_permanova')
+                           textOutput('permanovaCaption'),
+                           tableOutput('betaPermanova')
                          )
                        )
                        
@@ -534,7 +541,7 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
   # variables for level_5 and metadata
-  level_5 <- 0
+  level5 <- 0
   metadata <- 0
   
   observeEvent(input$tabs,{
@@ -544,13 +551,13 @@ server <- function(input, output) {
     # displays the tables the user inputs
     # will also generate a rank abundance curve 
     if(input$tabs == "tab2"){
-      l5_upload <- reactive({
+      l5Upload <- reactive({
         inFile1 <- input$file1
         if (is.null(inFile1))
           return(NULL)
         read_csv(inFile1$datapath)
       })
-      meta_upload <- reactive({
+      metaUpload <- reactive({
         inFile2 <- input$file2
         if (is.null(inFile2))
           return(NULL)
@@ -559,27 +566,27 @@ server <- function(input, output) {
       # upload level 5 and metadata files
       # convert to table format for cards
       observeEvent(input$run, {
-        level_5 <- l5_upload()
-        level_5 %>% filter_all(any_vars(. != 0))
-        metadata <- meta_upload()
-        output$level_5_contents <- renderTable({head(level_5)})
-        output$metadata_contents <- renderTable({metadata})
+        level5 <- l5Upload()
+        level5 %>% filter_all(any_vars(. != 0))
+        metadata <- metaUpload()
+        output$level5Contents <- renderTable({head(level5)})
+        output$metadataContents <- renderTable({metadata})
         
         # set column names in metadata to sample and treatment
         colnames(metadata) <- c("sample", "treatment")
         
-        sep_taxa <- separate_taxa(level_5, metadata)
+        sepTaxa <- separateTaxa(level5, metadata)
         
         # create a global dataset for treatments and samples, indicated by double arrows
-        samples <<- sep_taxa$samples
-        treatments <<- sep_taxa$treatments
-        meta_global <<- as.data.frame(metadata)
+        samples <<- sepTaxa$samples
+        treatments <<- sepTaxa$treatments
+        metaGlobal <<- as.data.frame(metadata)
         
         # create global datasets for each taxonomix level
-        Phylum <<- create_datasets(sep_taxa, "phylum")
-        Class <<- create_datasets(sep_taxa, "class")
-        Order <<- create_datasets(sep_taxa, "order")
-        Family <<- create_datasets(sep_taxa, "family")
+        Phylum <<- createDatasets(sepTaxa, "phylum")
+        Class <<- createDatasets(sepTaxa, "class")
+        Order <<- createDatasets(sepTaxa, "order")
+        Family <<- createDatasets(sepTaxa, "family")
       })
     }
     # server side functions for core taxa visualization
@@ -587,24 +594,24 @@ server <- function(input, output) {
       if(exists('Phylum')){
         
         # creates core dataset based on taxonomic level selected for tab4
-        core_data <- reactive ({
-          taxa <- input$taxon_core
-          my_list <- get(taxa)
-          core <- core_taxa(my_list$columnData)
+        coreData <- reactive ({
+          taxa <- input$taxonCore
+          myList <- get(taxa)
+          core <- coreTaxa(myList$columnData)
           return(core)
         })
         
         # creates the caption for the core dataset based on the taxonomic level selected
-        core_data_caption <- reactive({
-          taxa <- input$taxon_core
-          my_list <- get(taxa)
-          core <- core_taxa(my_list$columnData)
-          caption <- core_caption(my_list$columnData,core)
+        coreDataCaption <- reactive({
+          taxa <- input$taxonCore
+          myList <- get(taxa)
+          core <- coreTaxa(myList$columnData)
+          caption <- coreCaption(myList$columnData,core)
           return(caption)
         })
         # returns caption and core taxa table to output
-        output$coreCaption <- renderUI({HTML(core_data_caption())})
-        output$coreTaxa <- renderTable({core_data()},digits=0)
+        output$coreCaption <- renderUI({HTML(coreDataCaption())})
+        output$coreTaxa <- renderTable({coreData()},digits=0)
       }
     }
     # server side functions for unique taxa visualization
@@ -614,53 +621,53 @@ server <- function(input, output) {
         # create unique taxa output for tab 4 
         # creates unique taxa datset based on taxonomic level selected
         # Create a list with different objects for each treatment
-        unique_data <- reactive({
-          taxa <- input$taxon_unique
-          my_list <- get(taxa)
-          unique_taxa_list <- list()
-          unique_taxa_list <- unique_taxa(my_list$columnData, treatments)
+        uniqueData <- reactive({
+          taxa <- input$taxonUnique
+          myList <- get(taxa)
+          uniqueTaxaList <- list()
+          uniqueTaxaList <- uniqueTaxa(myList$columnData, treatments)
           
-          return(unique_taxa_list)
+          return(uniqueTaxaList)
         })
         
         # creates a list of the number of output tables based on the number of treatments 
         # tables are labeled with treatment names
-        output$unique_tables <-
+        output$uniqueTables <-
           renderUI({
-            table_output_list <- lapply(treatments$treatment, function(i){
+            tableOutputList <- lapply(treatments$treatment, function(i){
               tablename <- paste0("table", i)
               htmlOutput(tablename)
             })
             # generates a list of HTML tags Shiny uses to categorize each table output
             # allows Shiny to properly render the unique tables
-            tagList(table_output_list)
+            tagList(tableOutputList)
           })
         # render the table
         # use the "observe" command to allow reactive functions to run
         observe({
-          unique_data_tables <- unique_data()
+          uniqueDataTables <- uniqueData()
           
-          if (!length(unique_data_tables))
+          if (!length(uniqueDataTables))
           {
-            output$no_unique_caption <- renderText({"There are no unique taxa."})
+            output$noUniqueCaption <- renderText({"There are no unique taxa."})
           }
           
           for (i in 1:nrow(treatments)) {
             local({
-              my_i <- treatments[i,1]
+              myI <- treatments[i,1]
               # create the caption
-              num_unique <- length(unique_data_tables[[my_i]]$treatment)
-              taxa <- input$taxon_unique
-              my_list <- get(taxa)
-              total <- nrow(my_list$columnData)
-              caption_title <- paste('Unique taxa in', my_i, 'treatment:', num_unique, "of", total, "taxa are unique to this treatment")
+              numUnique <- length(uniqueDataTables[[myI]]$treatment)
+              taxa <- input$taxonUnique
+              myList <- get(taxa)
+              total <- nrow(myList$columnData)
+              captionTitle <- paste('Unique taxa in', myI, 'treatment:', numUnique, "of", total, "taxa are unique to this treatment")
               
-              tablename <- paste0("table", my_i)
+              tablename <- paste0("table", myI)
               output[[tablename]] <- renderTable(
                 {
-                  unique_data_tables[[my_i]]
+                  uniqueDataTables[[myI]]
                 },
-                caption = caption_title, caption.placement = getOption(
+                caption = captionTitle, caption.placement = getOption(
                   'xtable.caption.placement', 'top'
                 )
               )
@@ -674,57 +681,57 @@ server <- function(input, output) {
     else if (input$tabs == 'tab5'){
       if(exists('Phylum')){
         # select taxa level data and create the initial rarefaction graph for tab 5
-        which_initial_rarefaction <- reactive({
-          taxa <- input$taxon_rarefy
-          by_type <- input$by_type
-          my_list <- get(taxa)
-          my_data <- my_list$OTU_t
+        whichInitialRarefaction <- reactive({
+          taxa <- input$taxonRarefy
+          byType <- input$byType
+          myList <- get(taxa)
+          myData <- myList$OTU_t
           
           # Coerce the transposed OTU table into a matrix. rarecurve() only 
           # accepts matrix-like objects and will not accept an OTU table
-          my_data <- otu.matrix(my_data)
-          rarecurveData <- rarecurve(my_data, step=20, sample=20, xlab="Sample Size", ylab="Species", label=FALSE, tidy=FALSE)
-          graphRare(rarecurveData, taxa, by_type)
+          myData <- otu.matrix(myData)
+          rarecurveData <- rarecurve(myData, step=20, sample=20, xlab="Sample Size", ylab="Species", label=FALSE, tidy=FALSE)
+          graphRare(rarecurveData, taxa, byType)
         })
-        output$initial_rarefaction <- renderPlot({which_initial_rarefaction()})
+        output$initialRarefaction <- renderPlot({whichInitialRarefaction()})
         
         # select data and create even rarefaction graph
-        which_even_rarefaction <- reactive ({
-          taxa <- input$taxon_rarefy
-          by_type <- input$by_type
-          my_list <- get(taxa)
-          my_data <- my_list$otuRarefy_t
-          my_data <- otu.matrix(my_data)
-          rarecurveData <- rarecurve(my_data, step=20, sample=20, xlab="Sample Size", ylab="Species", label=FALSE, tidy=FALSE)
-          graphRare(rarecurveData, taxa, by_type)
+        whichEvenRarefaction <- reactive ({
+          taxa <- input$taxonRarefy
+          byType <- input$byType
+          myList <- get(taxa)
+          myData <- myList$otuRarefy_t
+          myData <- otu.matrix(myData)
+          rarecurveData <- rarecurve(myData, step=20, sample=20, xlab="Sample Size", ylab="Species", label=FALSE, tidy=FALSE)
+          graphRare(rarecurveData, taxa, byType)
         })
-        output$even_rarefaction <- renderPlot({which_even_rarefaction()})
+        output$evenRarefaction <- renderPlot({whichEvenRarefaction()})
       }
       
     }
     # server side functions for bar graphs
     else if (input$tabs == 'tab6'){
       if(exists('Phylum')) {
-        which_bar_graph <- reactive({
-          taxa <- input$taxon_bar
-          my_list <- get(taxa)
-          if(input$rawrare_bar=='Raw Data'){
-            my_data <- my_list$longDataOther
+        whichBarGraph <- reactive({
+          taxa <- input$taxonBar
+          myList <- get(taxa)
+          if(input$rawrareBar=='Raw Data'){
+            myData <- myList$longDataOther
           }
           else {
-            my_data <- my_list$longDataRareOther
+            myData <- myList$longDataRareOther
           }
-          if(input$abs_rel == 'Absolute Abundance'){ # absolute abundance
-            ggplot(data=my_data, aes(x=Sample, y=Abundance)) +
-              geom_bar(aes(fill=my_data[,2]), position='stack', stat='identity')+
+          if(input$absRel == 'Absolute Abundance'){ # absolute abundance
+            ggplot(data=myData, aes(x=Sample, y=Abundance)) +
+              geom_bar(aes(fill=myData[,2]), position='stack', stat='identity')+
               labs(fill=taxa, y='Absolute Abundance')+
               facet_grid(.~treatment, space='free_x', scales='free_x')+
               theme(legend.position='bottom')+
               guides(fill=guide_legend(ncol=2))
           }
           else{
-            ggplot(data=my_data, aes(x=Sample, y=Abundance))+
-              geom_bar(aes(fill=my_data[,2]), position='fill', stat='identity')+
+            ggplot(data=myData, aes(x=Sample, y=Abundance))+
+              geom_bar(aes(fill=myData[,2]), position='fill', stat='identity')+
               labs(fill=taxa, y='Relative Abundance')+
               facet_grid(.~treatment, space='free_x', scales='free_x')+
               theme(legend.position='bottom')+
@@ -732,101 +739,101 @@ server <- function(input, output) {
           }
         })
         # determine height of the taxonomy bar graphs in tab3
-        bar_graph_height <- reactive({
-          taxa <- input$taxon_bar
-          my_list <- get(taxa)
-          my_data <- my_list$longDataOther
-          num_taxa <- length(unique(my_data[,2]))
-          height = 300 + num_taxa*10
+        barGraphHeight <- reactive({
+          taxa <- input$taxonBar
+          myList <- get(taxa)
+          myData <- myList$longDataOther
+          numTaxa <- length(unique(myData[,2]))
+          height = 300 + numTaxa*10
           return(height)
         })
         # output the taxonomy bar graph 
-        observe({output$bargraph <- renderPlot({which_bar_graph()}, height = bar_graph_height())})
+        observe({output$bargraph <- renderPlot({whichBarGraph()}, height = barGraphHeight())})
       }
     }
     # server side functions for taxa heatmaps
     else if (input$tabs == 'tab7'){
-      heatmap_height <- reactive({
-        taxa <- input$taxon_heatmap
-        my_list <- get(taxa)
-        my_data <- my_list$longDataOther
-        num_taxa <- nrow(unique(my_data[,1]))
-        height <- max(c(225, num_taxa*15))
+      heatmapHeight <- reactive({
+        taxa <- input$taxonHeatmap
+        myList <- get(taxa)
+        myData <- myList$longDataOther
+        numTaxa <- nrow(unique(myData[,1]))
+        height <- max(c(225, numTaxa*15))
         return(height)
       })
       heatmap <- reactive({
-        taxa <- input$taxon_heatmap
-        my_list <- get(taxa)
-        if(input$rawrare_heatmap=='Raw Data'){
-          my_data <- my_list$longData
+        taxa <- input$taxonHeatmap
+        myList <- get(taxa)
+        if(input$rawrareHeatmap=='Raw Data'){
+          myData <- myList$longData
         }
         else{ 
-          my_data <- my_list$longDataRare
+          myData <- myList$longDataRare
         }
-          ggplot(my_data, aes(x=Sample, y=.data[[taxa]], fill=Abundance))+
+          ggplot(myData, aes(x=Sample, y=.data[[taxa]], fill=Abundance))+
             geom_tile(color='gray')+
             theme(legend.justification='top', axis.text.x=element_text(angle=-90, hjust=0.5))+
             scale_x_discrete(position='top')
       })
       # obeserve the heatmap
-      observe({output$heatmap <- renderPlot({heatmap()}, height=heatmap_height())})
+      observe({output$heatmap <- renderPlot({heatmap()}, height=heatmapHeight())})
     }
     # server side functions for alpha diversity visualization
     else if (input$tabs == 'tab8'){
       if(exists("Phylum")){
       # create a boxplot of alpha diversity depending on taxa, data type, and index
-      which_alpha_plot <- reactive({
-        taxa <- input$taxon_alpha_test
-        my_list <- get(taxa)
-        if(input$rawrare_alpha == 'Raw Data'){
-          my_data <- my_list$diversityResults
+      whichAlphaPlot <- reactive({
+        taxa <- input$taxonAlphaTest
+        myList <- get(taxa)
+        if(input$rawrareAlpha == 'Raw Data'){
+          myData <- myList$diversityResults
         }
         else{
-          my_data <- my_list$diversityResultsRarefy
+          myData <- myList$diversityResultsRarefy
         }
 
-        which_div <- input$div_measure
+        whichDiv <- input$divMeasure
         
-        # coerce "my_data" into a dataframe so that the group_by function
+        # coerce "myData" into a dataframe so that the group_by function
         # is able to use it, group_by() only accepts tbl data type
         # Additionally, ensure data is numeric 
-        my_data = as.data.frame(my_data)
-        my_data[[which_div]] <- as.numeric(my_data[[which_div]])
+        myData = as.data.frame(myData)
+        myData[[whichDiv]] <- as.numeric(myData[[whichDiv]])
         
         # for each treatment, calculate the median of whatever diversity measure the user selects
         # then create a tbl with the treatments and the median of the div. measure
-        MD = round(median(as.numeric(my_data[[which_div]])), 2)
-        data_median <- summarise(group_by(my_data, treatment), MD)
+        MD = round(median(as.numeric(myData[[whichDiv]])), 2)
+        dataMedian <- summarise(group_by(myData, treatment), MD)
         
-        y_label <- names(diversity_choices)[grep(which_div, diversity_choices)]
+        yLabel <- names(diversityChoices)[grep(whichDiv, diversityChoices)]
         
-        ggplot(my_data,aes(x=treatment,y=.data[[which_div]]))+
-          geom_boxplot()+theme_bw()+labs(x="Treatment",y=y_label)+
-          geom_text(data = data_median, aes(treatment, MD, label = MD), 
+        ggplot(myData,aes(x=treatment,y=.data[[whichDiv]]))+
+          geom_boxplot()+theme_bw()+labs(x="Treatment",y=yLabel)+
+          geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
                     position = position_dodge(width = 0.8), size = 3, vjust = -0.5)
         })
-        output$alpha_plots <- renderPlot({which_alpha_plot()})
+        output$alphaplots <- renderPlot({whichAlphaPlot()})
         if(nrow(treatments)==2){
         #create caption from results of t-test
-          alpha_caption <- reactive({
-            taxa <- input$taxon_alpha_test
-            my_list <- get(taxa)
-            if(input$rawrare_alpha=="Raw Data"){
-              my_data <- my_list$diversityResults
+          alphaCaption <- reactive({
+            taxa <- input$taxonAlphaTest
+            myList <- get(taxa)
+            if(input$rawrareAlpha=="Raw Data"){
+              myData <- myList$diversityResults
             }
             else{
-              my_data <- my_list$diversityResultsRarefy
+              myData <- myList$diversityResultsRarefy
             }
           
-            which_div <- input$div_measure
+            whichDiv <- input$divMeasure
             
-            # coerce "my_data" into a dataframe so that the group_by function
+            # coerce "myData" into a dataframe so that the group_by function
             # is able to use it, group_by() only accepts tbl data type
             # Additionally, ensure data is numeric 
-            my_data = as.data.frame(my_data)
-            my_data[[which_div]] <- as.numeric(my_data[[which_div]])
+            myData = as.data.frame(myData)
+            myData[[whichDiv]] <- as.numeric(myData[[whichDiv]])
             
-            result <- t.test(my_data[[which_div]]~my_data[,1])
+            result <- t.test(myData[[whichDiv]]~myData[,1])
             
             result_t <- round(result$statistic,digits=2)
             result_df <- round(result$parameter,digits=2)
@@ -843,49 +850,49 @@ server <- function(input, output) {
             caption <- HTML(paste("Welch's Two-sided T-test <br> t=",result_t,", df=",result_df,",",pvalue))
           })
         
-        output$alpha_caption<-renderUI({alpha_caption()})
+        output$alphaCaption<-renderUI({alphaCaption()})
         }
       
         else{
           #create ANOVA table and post-hoc comparisons
-          alpha_anova <- reactive({
-            taxa <- input$taxon_alpha_test
-            my_list <- get(taxa)
+          alphaAnova <- reactive({
+            taxa <- input$taxonAlphaTest
+            myList <- get(taxa)
             
-            if(input$rawrare_alpha=="Raw Data"){
-              my_data <- my_list$diversityResults
+            if(input$rawrareAlpha=="Raw Data"){
+              myData <- myList$diversityResults
             }
             else{
-              my_data <- my_list$diversityResultsRarefy
+              myData <- myList$diversityResultsRarefy
             }
             
-            anova_result <- 0
-            posthoc_result <- 0
-            anova_tables <- list()
+            anovaResult <- 0
+            posthocResult <- 0
+            anovaTables <- list()
             
-            which_div <- input$div_measure
+            whichDiv <- input$divMeasure
             
-            anova_result <- anova(aov(my_data[[which_div]]~my_data[,1]))
-            posthoc_result <- tidy(TukeyHSD(aov(my_data[[which_div]]~my_data[,1])))
+            anovaResult <- anova(aov(myData[[whichDiv]]~myData[,1]))
+            posthocResult <- tidy(TukeyHSD(aov(myData[[whichDiv]]~myData[,1])))
             
-            posthoc_result <- set(posthoc_result,,1,NULL)
+            posthocResult <- set(posthocResult,,1,NULL)
             
-            rownames(anova_result) <- c("Treatment","Residuals")
-            anova_caption <-"ANOVA Table"
-            posthoc_caption <-"Tukey's HSD"
-            anova_tables <- list(anova_result,anova_caption,posthoc_result,posthoc_caption)
+            rownames(anovaResult) <- c("Treatment","Residuals")
+            anovaCaption <-"ANOVA Table"
+            posthocCaption <-"Tukey's HSD"
+            anovaTables <- list(anovaResult,anovaCaption,posthocResult,posthocCaption)
             
             #return list
             return(anova_tables)
           })
         
         #output ANOVA table and caption
-        output$anova_caption <- renderText({alpha_anova()[[2]]})
-        output$alpha_anova <- renderTable({alpha_anova()[[1]]},rownames=TRUE)
+        output$anovaCaption <- renderText({alphaAnova()[[2]]})
+        output$alphaAnova <- renderTable({alphaAnova()[[1]]},rownames=TRUE)
         
         #output post-hoc table and caption
-        output$posthoc_caption <- renderText({alpha_anova()[[4]]})
-        output$alpha_posthoc<-renderTable({alpha_anova()[[3]]})
+        output$posthocCaption <- renderText({alphaAnova()[[4]]})
+        output$alphaPosthoc<-renderTable({alphaAnova()[[3]]})
       }
     }
       # close alpha diversity observe
@@ -893,34 +900,33 @@ server <- function(input, output) {
     # server side functions for beta diversity visualization
     else if (input$tabs == 'tab9'){
       # return the physeq object
-      which_phy_seq <- reactive({
-        taxa <- input$taxon_beta_test
-        my_list <- get(taxa)
-        if(input$rawrare_beta=='Raw Data'){
-          my_physeq <- my_list$physeq
-          print(my_physeq)
+      whichPhySeq <- reactive({
+        taxa <- input$taxonBetaTest
+        myList <- get(taxa)
+        if(input$rawrareBeta=='Raw Data'){
+          myPhyseq <- myList$physeq
         }
         else{
-          my_physeq <- my_list$physeqRare
+          myPhyseq <- myList$physeqRare
         }
-        return(my_physeq)
+        return(myPhyseq)
       })
       
       # make ordination data 
-      which_ordination_data <- reactive({
-        my_ord_data <- ordinate(which_phy_seq(), method=input$ord_method, distance=input$dist_measure)
-        return(my_ord_data)
+      whichOrdinationData <- reactive({
+        myOrdData <- ordinate(whichPhySeq(), method=input$ordMethod, distance=input$distMeasure)
+        return(myOrdData)
       })
       
       # plot the ordination
-      which_ordination_plot <- reactive ({
+      whichOrdinationPlot <- reactive ({
         if(input$samptreat=='Sample'){
-          plot_ordination(which_phy_seq(), which_ordination_data(), color = 'treatment') +
+          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'treatment') +
             stat_ellipse(type='t')+
             theme_bw()+
             coord_fixed()
         } else if (input$samptreat=='Treatment'){
-          plot_ordination(which_phy_seq(), which_ordination_data(), color = 'sample') +
+          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'sample') +
             stat_ellipse(type='t')+
             theme_bw()+
             coord_fixed()
@@ -928,43 +934,41 @@ server <- function(input, output) {
       })
       
       # make the ordination caption (NMDS stress)
-      which_ordination_caption <- reactive({
-        ord_data <- which_ordination_data()
-        if(input$ord_method=='NMDS'){
-          ord_cap <- paste("NMDS results: stress =", round(ord_data$stress, digits=4))
+      whichOrdinationCaption <- reactive({
+        ordData <- whichOrdinationData()
+        if(input$ordMethod=='NMDS'){
+          ordCap <- paste("NMDS results: stress =", round(ordData$stress, digits=4))
         }
         # may need to include an else statement here for other ordination methods
       })
       
       # plot ordination in UI
-      output$ordination_plot <- renderPlot({which_ordination_plot()})
-      output$ordination_caption <- renderText({which_ordination_caption()})
+      output$ordinationPlot <- renderPlot({whichOrdinationPlot()})
+      output$ordinationCaption <- renderText({whichOrdinationCaption()})
       
       # return adonis results
-      which_permanova <- reactive({
-        taxa <- input$taxon_beta_test
-        my_list <- get(taxa)
-        if(input$rawrare_beta == 'Raw Data'){
-          perm_method <- my_list$OTU_t
+      whichPermanova <- reactive({
+        taxa <- input$taxonBetaTest
+        myList <- get(taxa)
+        if(input$rawrareBeta == 'Raw Data'){
+          permMethod <- myList$OTU_t
         }
         else{
-          perm_method <- my_list$otuRarefy_t
+          permMethod <- myList$otuRarefy_t
         }
         
         # adonis depracated, replaced with adonis2
-        #perm_out <- adonis2(perm_method~treatment, data=meta_global, method=input$dist_measure)
-        
-        whichDist <- input$dist_measure
-        adonisFormula <- as.formula(paste(whichDist, "~ treatment"))
-        permaOut <- adonis2(perm_method ~ treatment, data = meta_global, method=whichDist)
+        #perm_out <- adonis2(perm_method~treatment, data=metaGlobal, method=input$dist_measure)
+        whichDist <- input$distMeasure
+        permaOut <- adonis2(permMethod ~ treatment, data = metaGlobal, method=whichDist)
 
         permanovaResults <- as.data.frame(permaOut)
         print(permanovaResults)
         rownames(permanovaResults)[1] <- "Treatment"
         return(permanovaResults)
       })
-      output$permanova_caption <- renderText({'PERMANOVA results'})
-      output$beta_permanova <- renderTable({which_permanova()}, rownames=TRUE)
+      output$permanovaCaption <- renderText({'PERMANOVA results'})
+      output$betaPermanova <- renderTable({whichPermanova()}, rownames=TRUE)
     }
     # close the observe event
   })
