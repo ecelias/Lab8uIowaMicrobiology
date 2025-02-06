@@ -30,5 +30,6 @@ Project Dependencies:
   <li>rsconnect, version=1.3.4</li>
   <li>igraph, version=2.1.2</li>
   <li>purr, version=1.0.2</li>
+  <li>BiodiversityR, version=2.17-1.1</li>
 </ul>
 This app was deployed to a server using <a href="https://www.shinyapps.io" target="_blank"> shinyapps.io</a>
