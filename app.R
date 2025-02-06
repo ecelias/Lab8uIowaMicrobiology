@@ -21,6 +21,7 @@ library(broom)
 library(shinycssloaders)
 library(bslib)
 library(shinyWidgets)
+library(BiodiversityR)
 
 # define helper functions to be utilized in front and back end operations
 # function to take the level 5 file and separate for future use
@@ -332,21 +333,21 @@ ordinationChoices <- list("NMDS", "PCoA")
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-  titlePanel("Bean Beetle Microbiome Analysis"), 
+  titlePanel(h1("Bean Beetle Microbiome Analysis", class="text-light")), 
   tabsetPanel(id = "tabs", 
               tabPanel(value = "tab1", title = "Home", 
                        mainPanel(
                          h3("Welcome to the Bean Beetle Microbiome Analysis App", class="text-light"),
                          p(""),
                          h4("The Bean Beetle Microbiome Project is a research/teaching collaboration of institutions across the US that is studying the microbiome of", em("Callosobruchus maculatus"), "in research experiences (CUREs).", class="text-light"),
-                         p("This app is designed to lead students through the community analysis of level-5 (family level) datasets produced in DNA subway", class="text-light"),
+                         p("This app is designed to lead students through the community analysis of level-5 (family level) datasets produced in DNA subway.", class="text-light"),
                          p("Before proceeding, students should ensure the level 5 file is formatted correctly such that all unidentified taxa, chloroplasts, and mitochondria have been removed. 
                            The level 5 file should also be formatted with the first column as taxa and the subsequent columns as samples with unique sample identifiers.", class="text-light"),
                          p("Students should also prepare a metadata file in the first column as samples and the second column as treatments.", strong("Both files should be in .csv format."), class="text-light"), 
-                         p("Additionally, this app should be capable of community analysis for any level 5 data", class="text-light"),
+                         p("Additionally, this app should be capable of community analysis for any level 5 data.", class="text-light"),
                          p(""),
                          
-                         p("This app was reconfigured for the University of Iowa MICR 2158 course based on the source materials from Huang et al., 2022 by Elizabeth Elias, an undergraduate student at the University of Iowa under the guidance of Dr. Regina McGrane, Department of Microbiology and Immunology, University of Iowa", class="text-light"),
+                         p("This app was reconfigured for the University of Iowa MICR 2158 course based on the source materials from Huang et al., 2022 by Elizabeth Elias, an undergraduate student at the University of Iowa under the guidance of Dr. Regina McGrane, Department of Microbiology and Immunology, University of Iowa.", class="text-light"),
                          p(tags$a("The original app can be found by clicking here.", href = "https://beanbeetles.shinyapps.io/BeanBeetleMicrobiome/")),
                          p(tags$a("For more information on this CURE project, please click here", href = "https://www.beanbeetles.org/microbiome/the-bean-beetle-microbiome-project/")),
                          p(tags$a("Click here to find the GitHub repo for this project", href = "https://github.com/ecelias/Lab8uIowaMicrobiology"))
@@ -419,7 +420,12 @@ ui <- fluidPage(
                                  "Rank Abundance Curve"
                                ),
                                card_body(
-                                 
+                                 tags$i(p("A rank abundance curve or Whittaker plot represents the relative abundance of species within a community.
+                                          by plotting species abundance against its rank order, providing a visualization of both species
+                                          richness and species evenness. A steeper curve indicates that a community is comprised of a few dominant species
+                                          while the others are relatively rare whereas a flatter curve suggests more more even distrubution of species",
+                                          class="text-light")), 
+                                 tags$hr(),
                                  plotOutput("rankabundancecurve", width = "100%", height = "auto")
                                  
                                )
@@ -439,10 +445,10 @@ ui <- fluidPage(
                              radioGroupButtons(
                                inputId = "taxonCore",
                                label = p("Select a taxonomic level:",class="text-light"),
-                               choices = c("Phylum", "Class", "Order", "Family"),
+                               choices = taxachoices,
                                direction = "vertical"
                              ),
-                             ## is there a way to make it so they can quickly click through all 4 taxa levels? instead of dropdown menu
+                             ## Use this to create a dropdown menu
                              #selectInput("taxonCore", "Select a taxon", taxachoices), width = 2
                            )
                          ),
@@ -464,7 +470,7 @@ ui <- fluidPage(
                              radioGroupButtons(
                                inputId = "taxonUnique",
                                label = p("Select a taxonomic level:",class="text-light"),
-                               choices = c("Phylum", "Class", "Order", "Family"),
+                               choices = taxachoices,
                                direction = "vertical"
                              )
                            )
@@ -486,25 +492,40 @@ ui <- fluidPage(
                            radioGroupButtons(
                              inputId = "taxonRarefy",
                              label = p("Select a taxonomic level:",class="text-light"),
-                             choices = c("Phylum", "Class", "Order", "Family"),
+                             choices = taxachoices,
                              direction = "vertical"
                            ),
-                           selectInput('byType', p("Graph by:",class="text-light"), sampleOrTreatment)
+                           radioGroupButtons(
+                             inputId = "byType",
+                             label = p("Graph By:", class="text-light"),
+                             choices = sampleOrTreatment,
+                             justified = TRUE, 
+                             direction = "vertical"
+                           )
                          ),
                          mainPanel(
+                           h2("Sample Rarefaction Curves",class="text-light"), 
                              card(
-                               h2("Sample Rarefaction Curves",class="text-light"), 
-                               h3("Raw Data",class="text-light"),
+                               card_header(
+                                 class = "bg-primary mb-3",
+                                 "Raw Data"
+                               ),
                                plotOutput('initialRarefaction', width='100%', height='400px') %>%
                                  withSpinner(color='#0dc5c1'), 
-                               downloadButton("downloadInitialRarefaction", "Download Plot", class="btn-sm")
+                               full_screen = TRUE,
                              ),
+                           downloadButton("downloadInitialRarefaction", "Download Plot", class="btn-sm"),
+                           tags$hr(),
                              card(
-                               h3('Even rarefaction to minimum number of sequences',class="text-light"),
+                               card_header(
+                                 class = "bg-primary mb-3",
+                                 "Even Rarefaction to Minimum Number of Sequences"
+                               ),
                                plotOutput('evenRarefaction', width='100%', height='400px') %>%
                                  withSpinner(color='#0dc5c1'), 
-                               downloadButton("downloadEvenRarefaction", "Download Plot", class="btn-sm")
-                             )
+                               full_screen = TRUE,
+                             ), 
+                           downloadButton("downloadEvenRarefaction", "Download Plot", class="btn-sm")
                          )
                        )
               ),
@@ -514,41 +535,55 @@ ui <- fluidPage(
                            radioGroupButtons(
                              inputId = "taxonBar",
                              label = p("Select a taxonomic level:",class="text-light"),
-                             choices = c("Phylum", "Class", "Order", "Family"),
+                             choices = taxachoices,
                              direction = "vertical"
                            ),
                            radioGroupButtons(
                              inputId = "rawrareBar",
                              label = p("Select which data to use:", class="text-light"),
-                             choices = c("Raw Data", 
-                                         "Rarified Data"),
-                             justified = TRUE
+                             choices = rawOrRare
                            ),
                            radioGroupButtons(
                              inputId = "absRel",
                              label = p("Graph By:", class="text-light"),
-                             choices = c("Absolute Abundance", 
-                                         "Relative Abundance"),
-                             justified = TRUE, 
+                             choices = absOrRel,
                              direction = "vertical"
+                           ), 
+                           p("Display Legend?", class="text-light"),
+                           switchInput(
+                             inputId = "hideLegend",
+                             onLabel = "Show",
+                             offLabel = "Hide"
                            )
                          ),
                          mainPanel(
-                           plotOutput('bargraph',width='100%', height='auto'), 
-                           tags$hr(),
-                           downloadButton("downloadBar", "Download Plot", class="btn-sm")
+                           h2("Taxonomy Bar Graph",class="text-light"),
+                          card(
+                            plotOutput('bargraph',width='100%', height='auto'),
+                            full_screen = TRUE
+                           ), 
+                          downloadButton("downloadBar", "Download Plot", class="btn-sm")
                          )
                        )
               ),
               tabPanel(value = "tab7", title = "Taxonomy Heat Map", 
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxonHeatmap', 'Select a taxonomic level', taxachoices),
-                           selectInput('rawrareHeatmap', 'Select which data to use', rawOrRare),
-                           selectInput('absRel', 'Graph by:', absOrRel), width = 4
+                           radioGroupButtons(
+                             inputId = "taxonHeatmap",
+                             label = p("Select a taxonomic level:",class="text-light"),
+                             choices = taxachoices,
+                             direction = "vertical"
+                           ),
+                           radioGroupButtons(
+                             inputId = "rawrareHeatmap",
+                             label = p("Select which data to use:", class="text-light"),
+                             choices = rawOrRare
+                           )
                          ),
                          mainPanel(
-                           plotOutput('heatmap', height='auto'),
+                           h2("Taxonomy Heatmap",class="text-light"),
+                           card(plotOutput('heatmap', height="auto")),
                            downloadButton("downloadHeatmap", "Download Plot", class="btn-sm")
                          )
                        )
@@ -556,18 +591,36 @@ ui <- fluidPage(
               tabPanel(value = "tab8", title = "Alpha Diversity", 
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxonAlphaTest', 'Select a taxonomic level', taxachoices),
-                           selectInput('rawrareAlpha', 'Select which data to use', rawOrRare),
-                           selectInput('divMeasure', 'Select diversity measure', diversityChoices)
-                         ),
+                           radioGroupButtons(
+                             inputId = "taxonAlphaTest",
+                             label = p("Select a taxonomic level:",class="text-light"),
+                             choices = taxachoices,
+                             direction = "vertical"
+                           ),
+                           radioGroupButtons(
+                             inputId = "rawrareAlpha",
+                             label = p("Select which data to use:", class="text-light"),
+                             choices = rawOrRare,
+                           ),
+                           radioGroupButtons(
+                             inputId = "divMeasure",
+                             label = p("Select a diversity measure:", class="text-light"),
+                             choices = diversityChoices,
+                             direction="vertical"
+                           )
+                        ),
                          mainPanel(
-                           h3('Alpha Diversity'),
-                           plotOutput('alphaPlots'), 
+                           h3('Alpha Diversity', class="text-light"),
+                           card(
+                             plotOutput('alphaPlots'), 
+                             full_screen = TRUE
+                             ), 
                            downloadButton("downloadAlpha", "Download Plot", class="btn-sm"),
                            tags$hr(), 
-                           htmlOutput('alphaCaption'),
+                           h5("Welch's Two-Sided T-test:", class="text-light"),
+                           tableOutput('alphaStats'),
                            textOutput('anovaCaption'),
-                           tableOutput('alphaAnova'),
+                           tableOutput('alphaAnova'), 
                            textOutput('posthocCaption'),
                            tableOutput('alphaPosthoc')
                          )
@@ -576,20 +629,53 @@ ui <- fluidPage(
               tabPanel(value = "tab9", title = "Beta Diversity", 
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxonBetaTest', 'Select a taxonomic level', taxachoices),
-                           selectInput('rawrareBeta', 'Select which data to use', rawOrRare),
-                           selectInput('distMeasure', 'Select distance measure', distanceChoices),
-                           selectInput('ordMethod', 'Select ordination method', ordinationChoices),
-                           selectInput('samptreat', 'Graph by:', sampleOrTreatment)
-                           
+                           radioGroupButtons(
+                             inputId = "taxonBetaTest",
+                             label = p("Select a taxonomic level:",class="text-light"),
+                             choices = taxachoices,
+                             direction = "vertical"
+                           ),
+                           radioGroupButtons(
+                             inputId = "rawrareBeta",
+                             label = p("Select which data to use:", class="text-light"),
+                             choices = rawOrRare,
+                           ),
+                           radioGroupButtons(
+                             inputId = "distMeasure",
+                             label = p("Select distance measure:", class="text-light"),
+                             choices = distanceChoices,
+                             direction="vertical"
+                           ),
+                           radioGroupButtons(
+                             inputId = "ordMethod",
+                             label = p("Select ordination method:", class="text-light"),
+                             choices = ordinationChoices,
+                           ),
+                           radioGroupButtons(
+                             inputId = "samptreat",
+                             label = p("Select distance measure:", class="text-light"),
+                             choices = sampleOrTreatment,
+                           )
                          ),
                          mainPanel(
-                           h3('Beta Diversity'),
-                           plotOutput('ordinationPlot'), 
-                           textOutput('ordinationCaption'),
-                           downloadButton("downloadBeta", "Download Plot", class="btn-sm"),
+                           h3('Beta Diversity', class='text-light'),
+                           navset_card_underline(
+                             title = h5("Visualizations", class="text-light"),
+                             # Panel with scaled axis
+                             # panel with unscaled plots
+                             nav_panel("Unscaled", 
+                                       plotOutput("unscaledOrdPlot"),
+                             ),
+                             nav_panel("Scaled", 
+                                       plotOutput("scaledOrdPlot"), 
+                                       )
+                           ), 
+                           tags$hr(),
+                           htmlOutput('ordinationCaption'),
+                           downloadButton("downloadBetaScaled", "Download Unscaled Plot", class="btn-sm"),
+                           downloadButton("downloadBetaUnscaled", "Download Scaled Plot", class="btn-sm"),
                            tags$hr(), 
-                           textOutput('permanovaCaption'),
+                           h5("PERMANOVA Result:", class="text-light"),
                            tableOutput('betaPermanova')
                          )
                        )
@@ -647,6 +733,23 @@ server <- function(input, output) {
         samples <<- sepTaxa$samples
         treatments <<- sepTaxa$treatments
         metaGlobal <<- as.data.frame(metadata)
+        
+        # Prepare data for rank abundance calculation
+        data_long <- level5 %>%
+          gather(Sample, Abundance, -Sample) %>%  # Reshape data
+          group_by(Sample) %>%
+          arrange(desc(Abundance)) %>%
+          mutate(Rank = row_number())
+        
+        # output the rank abundance plot
+        output$rankabundancecurve <- renderPlot({
+          ggplot(data_long, aes(x = Rank, y = Abundance)) +
+            geom_point() +
+            geom_line() +
+            scale_x_continuous(name = "Rank") +
+            scale_y_continuous(name = "Abundance") +
+            theme_bw()
+        })
         
         # create global datasets for each taxonomix level
         Phylum <<- createDatasets(sepTaxa, "phylum")
@@ -726,9 +829,10 @@ server <- function(input, output) {
               taxa <- input$taxonUnique
               myList <- get(taxa)
               total <- nrow(myList$columnData)
+              # change the text color by changing the class. 
+              # text color options can be viewed on bootswatch.com
               captionTitle = paste("<p class='text-light'>Unique taxa in", myI, "treatment: <b>", numUnique, 
                               "of", total, "taxa are unique to this treatment</b></p>")
-              #captionTitle <- paste('Unique taxa in', myI, 'treatment:', numUnique, "of", total, "taxa are unique to this treatment")
               
               tablename <- paste0("table", myI)
               output[[tablename]] <- renderTable(
@@ -803,8 +907,8 @@ server <- function(input, output) {
         )
         
       }
-      
     }
+    
     # server side functions for bar graphs
     else if (input$tabs == 'tab6'){
       if(exists('Phylum')) {
@@ -817,45 +921,113 @@ server <- function(input, output) {
           else {
             myData <- myList$longDataRareOther
           }
-          if(input$absRel == 'Absolute Abundance'){ # absolute abundance
-            ggplot(data=myData, aes(x=Sample, y=Abundance)) +
-              geom_bar(aes(fill=myData[,2]), position='stack', stat='identity')+
-              labs(fill=taxa, y='Absolute Abundance')+
-              facet_grid(.~treatment, space='free_x', scales='free_x')+
-              theme(legend.position='bottom')+
-              guides(fill=guide_legend(ncol=2)) +
-              theme(
-                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
-                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
-                axis.text.x = element_text(size = 14, angle=45, vjust=0.5),   
-                axis.text.y = element_text(size = 14),   
-                legend.title = element_text(size = 16, , face="bold"),  
-                legend.text = element_text(size = 14)
-                #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
-              )
-          }
-          else{
-            ggplot(data=myData, aes(x=Sample, y=Abundance))+
-              geom_bar(aes(fill=myData[,2]), position='fill', stat='identity')+
-              labs(fill=taxa, y='Relative Abundance')+
-              facet_grid(.~treatment, space='free_x', scales='free_x')+
-              theme(legend.position='bottom')+
-              guides(fill=guide_legend(ncol=2))
+          # two options that allow user to hide legend if they prefer to 
+          # download the plot that way
+          if(!input$hideLegend){
+            # if user selects absolute abundance to graph by
+            if(input$absRel == 'Absolute Abundance'){ 
+              ggplot(data=myData, aes(x=Sample, y=Abundance)) +
+                geom_bar(aes(fill=myData[,2]), position='stack', stat='identity')+
+                labs(fill=taxa, y='Absolute Abundance')+
+                facet_grid(.~treatment, space='free_x', scales='free_x')+
+                theme(legend.position='bottom')+
+                guides(fill=guide_legend(ncol=1)) +
+                ggtitle("")+
+                # customizes text elements 
+                theme(
+                  axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                  axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                  axis.text.x = element_text(size = 14, angle=45, vjust=0.5),   
+                  axis.text.y = element_text(size = 14),   
+                  legend.title = element_text(size = 16, , face="bold"),  
+                  legend.text = element_text(size = 12),
+                  legend.title.position = "top",
+                  strip.text = element_text(size = 16), 
+                  plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+                )
+            }
+            else{
+              ggplot(data=myData, aes(x=Sample, y=Abundance))+
+                geom_bar(aes(fill=myData[,2]), position='fill', stat='identity')+
+                labs(fill=taxa, y='Relative Abundance')+
+                facet_grid(.~treatment, space='free_x', scales='free_x')+
+                theme(legend.position='bottom')+
+                guides(fill=guide_legend(ncol=1))+
+                theme(
+                  axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                  axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                  axis.text.x = element_text(size = 14, angle=45, vjust=0.5),   
+                  axis.text.y = element_text(size = 14),   
+                  legend.title = element_text(size = 16, , face="bold"),  
+                  legend.text = element_text(size = 14),
+                  strip.text = element_text(size = 16)
+                  #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+                )
+            }
+          } else{
+            if(input$absRel == 'Absolute Abundance'){ # absolute abundance
+              ggplot(data=myData, aes(x=Sample, y=Abundance)) +
+                geom_bar(aes(fill=myData[,2]), position='stack', stat='identity')+
+                labs(fill=taxa, y='Absolute Abundance')+
+                facet_grid(.~treatment, space='free_x', scales='free_x')+
+                theme(legend.position='none')+
+                guides(fill=guide_legend(ncol=1)) +
+                ggtitle("")+
+                theme(
+                  axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                  axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                  axis.text.x = element_text(size = 14, angle=45, vjust=0.5),   
+                  axis.text.y = element_text(size = 14),   
+                  strip.text = element_text(size = 16), 
+                  plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+                )
+            }
+            else{
+              ggplot(data=myData, aes(x=Sample, y=Abundance))+
+                geom_bar(aes(fill=myData[,2]), position='fill', stat='identity')+
+                labs(fill=taxa, y='Relative Abundance')+
+                facet_grid(.~treatment, space='free_x', scales='free_x')+
+                theme(legend.position='none')+
+                guides(fill=guide_legend(ncol=1))+
+                theme(
+                  axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                  axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                  axis.text.x = element_text(size = 14, angle=45, vjust=0.5),   
+                  axis.text.y = element_text(size = 14),   
+                  strip.text = element_text(size = 16)
+                  #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+                )
+            }            
           }
         })
+        
         # determine height of the taxonomy bar graphs in tab3
         barGraphHeight <- reactive({
           taxa <- input$taxonBar
           myList <- get(taxa)
           myData <- myList$longDataOther
           numTaxa <- length(unique(myData[,2]))
-          height = 300 + numTaxa*10
+          height = 500 + numTaxa*10
           return(height)
         })
+        
         # output the taxonomy bar graph 
         observe({output$bargraph <- renderPlot({whichBarGraph()}, height = barGraphHeight())})
+        
+        # Functionality for downloading the the Bar Graph plot
+        output$downloadBar <- downloadHandler(
+          filename = function() {
+            paste("taxa_bargraph_plot.png", sep="")
+          }, 
+          content = function(file) {
+            png(file=file)
+            plot(whichBarGraph(), height=barGraphHeight())
+            dev.off()
+          }
+        )
       }
     }
+    
     # server side functions for taxa heatmaps
     else if (input$tabs == 'tab7'){
       heatmapHeight <- reactive({
@@ -863,9 +1035,18 @@ server <- function(input, output) {
         myList <- get(taxa)
         myData <- myList$longDataOther
         numTaxa <- nrow(unique(myData[,1]))
-        height <- max(c(225, numTaxa*15))
+        if(taxa == "Phylum") {
+          height <- max(c(400, numTaxa*15))
+        } else if(taxa == "Class") {
+          height <- max(c(750, numTaxa*15))
+        } else if(taxa == "Order") {
+          height <- max(c(1000, numTaxa*15))
+        } else if(taxa == "Family") {
+          height <- max(c(1500, numTaxa*15))
+        }
         return(height)
       })
+      
       heatmap <- reactive({
         taxa <- input$taxonHeatmap
         myList <- get(taxa)
@@ -875,13 +1056,55 @@ server <- function(input, output) {
         else{ 
           myData <- myList$longDataRare
         }
-          ggplot(myData, aes(x=Sample, y=.data[[taxa]], fill=Abundance))+
-            geom_tile(color='gray')+
-            theme(legend.justification='top', axis.text.x=element_text(angle=-90, hjust=0.5))+
+        
+        if(taxa == "Phylum") {
+          # Extract the second part of the species name (p__Phylum)
+          yLabel <- sapply(as.character(myData[[taxa]]), 
+                           function(x) strsplit(x, " ")[[1]][2])
+          labelTitle <- "Phylum"
+        } else if(taxa == "Class") {
+          # Extract the third part of the species name (c__Class)
+          yLabel <- sapply(as.character(myData[[taxa]]), 
+                           function(x) strsplit(x, " ")[[1]][3])  
+          labelTitle <- "Class"
+        } else if(taxa == "Order") {
+          # Extract the fourth part of the species name (o__Order)
+          yLabel <- sapply(as.character(myData[[taxa]]), 
+                           function(x) strsplit(x, " ")[[1]][4])  
+          labelTitle <- "Order"
+        } else if(taxa == "Family") {
+          # Extract the fifth part of the species name (f__Family)
+          yLabel <- sapply(as.character(myData[[taxa]]), 
+                           function(x) strsplit(x, " ")[[1]][5])  
+          labelTitle <- "Family"
+        }
+        
+        ggplot(myData, aes(x=Sample, y=yLabel, fill=Abundance))+
+            geom_tile(color='gray')+ labs(y=labelTitle)+
+            theme(
+              legend.justification='top', 
+              axis.text.x=element_text(angle=-90, size =10),
+              axis.title.x = element_text(size = 14, margin = margin(t = 30)),
+              axis.title.y = element_text(size = 14, margin = margin(r = 10)),
+              axis.text.y=element_text(size=8),
+              )+
             scale_x_discrete(position='top')
       })
+      
       # obeserve the heatmap
       observe({output$heatmap <- renderPlot({heatmap()}, height=heatmapHeight())})
+      
+      # Functionality for downloading the the Bar Graph plot
+      output$downloadHeatmap <- downloadHandler(
+        filename = function() {
+          paste("taxa_heatmap_plot.png", sep="")
+        }, 
+        content = function(file) {
+          png(file=file)
+          plot(heatmap(), height=heatmapHeight())
+          dev.off()
+        }
+      )
     }
     # server side functions for alpha diversity visualization
     else if (input$tabs == 'tab8'){
@@ -907,20 +1130,45 @@ server <- function(input, output) {
         
         # for each treatment, calculate the median of whatever diversity measure the user selects
         # then create a tbl with the treatments and the median of the div. measure
-        MD = round(median(as.numeric(myData[[whichDiv]])), 2)
-        dataMedian <- summarise(group_by(myData, treatment), MD)
+        dataMedian <- summarise(group_by(myData, treatment), 
+                                MD = round(median(as.numeric(.data[[whichDiv]])), 2))
         
         yLabel <- names(diversityChoices)[grep(whichDiv, diversityChoices)]
         
-        ggplot(myData,aes(x=treatment,y=.data[[whichDiv]]))+
-          geom_boxplot()+theme_bw()+labs(x="Treatment",y=yLabel)+
+        ggplot(myData,aes(x=treatment,y=.data[[whichDiv]], fill=treatment))+
+          geom_boxplot(alpha=0.3)+theme_bw()+labs(x="Treatment",y=yLabel)+
           geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
-                    position = position_dodge(width = 0.8), size = 3, vjust = -0.5)
+                    position = position_dodge(width=0.8), 
+                    size = 5, vjust = -0.5, hjust = 0.5)+
+          theme(
+            axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+            axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+            axis.text.x = element_text(size = 14),   
+            axis.text.y = element_text(size = 14),   
+            strip.text = element_text(size = 16), 
+            legend.position="none"
+            #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+          ) +
+          scale_fill_brewer(palette="Accent")
         })
+      
         output$alphaPlots <- renderPlot({whichAlphaPlot()})
+        
+        # Functionality for downloading the the Alpha Diversity plot
+        output$downloadAlpha <- downloadHandler(
+          filename = function() {
+            paste("alpha_diversity_plot.png", sep="")
+          }, 
+          content = function(file) {
+            png(file=file)
+            plot(whichAlphaPlot())
+            dev.off()
+          }
+        )
+        
         if(nrow(treatments)==2){
         #create caption from results of t-test
-          alphaCaption <- reactive({
+          alphaStats <- reactive({
             taxa <- input$taxonAlphaTest
             myList <- get(taxa)
             if(input$rawrareAlpha=="Raw Data"){
@@ -940,24 +1188,31 @@ server <- function(input, output) {
             
             result <- t.test(myData[[whichDiv]]~myData[,1])
             
-            result_t <- round(result$statistic,digits=2)
-            result_df <- round(result$parameter,digits=2)
+            result_t <- round(as.numeric(result$statistic,digits=2))
+            result_df <- round(as.numeric(result$parameter,digits=2))
             result_p <- round(result$p.value,digits=2)
             pvalue <- ""
             if(result_p<0.01){
               pvalue <- "p<0.01"
             }
             else{
-              pvalue <- paste("p=",result_p)
+              pvalue <- paste("p = ",result_p)
             }
-          
-            #create caption from components of result from t-test
-            caption <- HTML(paste("Welch's Two-sided T-test <br> t=",result_t,", df=",result_df,",",pvalue))
+            
+            ttest <- sprintf("t = %d", result_t)
+            degf <- sprintf("df = %d", result_df)
+            
+            # create a dataframe to show the results of Welch's two-sided t-test
+            alphaStatsTable <- data.frame(
+              Statistic = c("t-test statistic", "degrees of freedom", "p-value"), 
+              Value = c(ttest, degf, pvalue)
+            )
+            return(alphaStatsTable)
           })
+        output$alphaStats <- renderTable({alphaStats()}, rownames=TRUE, 
+                                         striped=TRUE, bordered=TRUE)
         
-        output$alphaCaption<-renderUI({alphaCaption()})
         }
-      
         else{
           #create ANOVA table and post-hoc comparisons
           alphaAnova <- reactive({
@@ -993,7 +1248,8 @@ server <- function(input, output) {
         
         #output ANOVA table and caption
         output$anovaCaption <- renderText({alphaAnova()[[2]]})
-        output$alphaAnova <- renderTable({alphaAnova()[[1]]},rownames=TRUE)
+        output$alphaAnova <- renderTable({alphaAnova()[[1]]},rownames=TRUE, 
+                                         striped=TRUE, bordered=TRUE)
         
         #output post-hoc table and caption
         output$posthocCaption <- renderText({alphaAnova()[[4]]})
@@ -1024,17 +1280,70 @@ server <- function(input, output) {
       })
       
       # plot the ordination
-      whichOrdinationPlot <- reactive ({
+      whichScaledOrdinationPlot <- reactive ({
         if(input$samptreat=='Sample'){
-          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'treatment') +
-            stat_ellipse(type='t')+
-            theme_bw()+
-            coord_fixed()
-        } else if (input$samptreat=='Treatment'){
           plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'sample') +
+            # change the axis title
+            guides(color = guide_legend(title = "Sample"))+
             stat_ellipse(type='t')+
             theme_bw()+
-            coord_fixed()
+            #coord_fixed()+
+            theme(
+              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+              axis.text.x = element_text(size = 14),   
+              axis.text.y = element_text(size = 14),   
+              legend.title = element_text(size = 16, , face="bold"),  
+              legend.text = element_text(size = 14),
+            )
+        } else if (input$samptreat=='Treatment'){
+          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'treatment') +
+            guides(color = guide_legend(title = "Treatment"))+
+            stat_ellipse(type='t')+
+            theme_bw()+
+            #coord_fixed()+
+            theme(
+              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+              axis.text.x = element_text(size = 14),   
+              axis.text.y = element_text(size = 14),   
+              legend.title = element_text(size = 16, , face="bold"),  
+              legend.text = element_text(size = 14),
+            )
+        }
+      })
+      
+      # plot the ordination
+      whichUnscaledOrdinationPlot <- reactive ({
+        if(input$samptreat=='Sample'){
+          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'sample') +
+            # change the axis title
+            guides(color = guide_legend(title = "Sample"))+
+            stat_ellipse(type='t')+
+            theme_bw()+
+            coord_fixed()+
+            theme(
+              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+              axis.text.x = element_text(size = 14),   
+              axis.text.y = element_text(size = 14),   
+              legend.title = element_text(size = 16, , face="bold"),  
+              legend.text = element_text(size = 14),
+            )
+        } else if (input$samptreat=='Treatment'){
+          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'treatment') +
+            guides(color = guide_legend(title = "Treatment"))+
+            stat_ellipse(type='t')+
+            theme_bw()+
+            coord_fixed()+
+            theme(
+              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+              axis.text.x = element_text(size = 14),   
+              axis.text.y = element_text(size = 14),   
+              legend.title = element_text(size = 16, , face="bold"),  
+              legend.text = element_text(size = 14),
+            )
         }
       })
       
@@ -1042,14 +1351,41 @@ server <- function(input, output) {
       whichOrdinationCaption <- reactive({
         ordData <- whichOrdinationData()
         if(input$ordMethod=='NMDS'){
-          ordCap <- paste("NMDS results: stress =", round(ordData$stress, digits=4))
+          ordCap <- paste("<p class='text-light'>NMDS results: stress =", round(ordData$stress, digits=4), "</p>")
+          ordCap <- toString(ordCap)
         }
         # may need to include an else statement here for other ordination methods
       })
       
       # plot ordination in UI
-      output$ordinationPlot <- renderPlot({whichOrdinationPlot()})
-      output$ordinationCaption <- renderText({whichOrdinationCaption()})
+      output$scaledOrdPlot <- renderPlot({whichScaledOrdinationPlot()})
+      output$unscaledOrdPlot <- renderPlot({whichUnscaledOrdinationPlot()})
+      #output$ordinationCaption <- renderText({whichOrdinationCaption()})
+      output$ordinationCaption <-renderUI({HTML(whichOrdinationCaption())})
+      
+      # Functionality for downloading the the Beta Diversity plot
+      output$downloadBetaScaled <- downloadHandler(
+        filename = function() {
+          paste("scaled_beta_diversity_plot.png", sep="")
+        }, 
+        content = function(file) {
+          png(file=file)
+          plot(whichScaledOrdinationPlot())
+          dev.off()
+        }
+      )
+      
+      # Functionality for downloading the the Beta Diversity plot
+      output$downloadBetaUnscaled <- downloadHandler(
+        filename = function() {
+          paste("unscaled_beta_diversity_plot.png", sep="")
+        }, 
+        content = function(file) {
+          png(file=file)
+          plot(whichUnscaledOrdinationPlot())
+          dev.off()
+        }
+      )
       
       # return adonis results
       whichPermanova <- reactive({
@@ -1072,8 +1408,8 @@ server <- function(input, output) {
         rownames(permanovaResults)[1] <- "Treatment"
         return(permanovaResults)
       })
-      output$permanovaCaption <- renderText({'PERMANOVA results'})
-      output$betaPermanova <- renderTable({whichPermanova()}, rownames=TRUE)
+      output$betaPermanova <- renderTable({whichPermanova()}, rownames=TRUE,
+                                          striped=TRUE, bordered=TRUE)
     }
     # close the observe event
   })
