@@ -1,7 +1,34 @@
 # Lab8uIowaMicrobiology
 
-This RShiny app was reconfigured from the source code written by Carolyne Huang from Emory University. 
+<h3>Project Overview</h3>
 
-While the original app was more than capable of serving it's purpose, high traffic made it difficult for students at the University of Iowa to use properly. This app will be used by the University of Iowa specifically to reduce site traffic and offer new features such as the ability to save any graphs as a PNG and view multiple taxonomic levels side-by-side rather than one at a time. 
+<p>This RShiny app was reconfigured from source code written by Carolyne Huang from Emory University.</p>
 
-Furthermore, I was unable to determine the version of R used in the original code, which meant I had to manually determine what functions from what packages were depreciated and adjust the code accordingly. The second goal of this project is to provide robust documentation so that if any future issues are identified, it is easier for those without a strong computer science background to update the code as needed. 
+<p>While the original app was more than capable of serving it's purpose, high traffic made it difficult for students at the University of Iowa to use properly. This app will be used by the University of Iowa specifically to reduce site traffic and offer new features such as the ability to save any graphs as a PNG and view multiple taxonomic levels side-by-side rather than one at a time. Additionally, this version contains improvement to figure format so that they are in a more publishable format. </p>
+
+<p>Unfortunately, the code base provided by Emory University did not provide the version of R that was used and contained multiple errors which rendered the app non-functional. Although the version of the app previously used by the University of Iowa functioned as expected, a large portion of the source code had to be altered or updated with non-depracted functions to work correctly.  </p>
+
+<p>As the University of Iowa's Microbiology & Immunology department values giving students a wide variety of opportunities to explore careers in different aspects of the field, this project also sought to provide detailed comments and robust documentation within this repository so any future students interested in bioinformatics are able to play with this code should they desire a starting point. </p>
+
+<h3>R Version Information and Project Dependencies</h3>
+<strong>R Version: 4.4.2 "Pile of leaves"</strong> <br><br>
+Platform: aarch64-apple-darwin20 <br><br>
+Project Dependencies:
+<ul>
+  <li>BiocManager, version=3.20</li>
+  <li>shiny, version=1.10.0</li>
+  <li>tidyverse, version=2.0.0</li>
+  <li>ggplot2, version=3.5.1</li>
+  <li>vegan, version=2.6-10</li>
+  <li>data.table, version=1.16.4</li>
+  <li>readr, version=2.1.5</li>
+  <li>phyloseq, version=1.50.0</li>
+  <li>phyloseqCompanion, version=1.1</li>
+  <li>broom, version=1.0.7</li>
+  <li>shinycssloaders, version=1.1.0</li>
+  <li>bslib, version=0.8.0</li>
+  <li>rsconnect, version=1.3.4</li>
+  <li>igraph, version=2.1.2</li>
+  <li>purr, version=1.0.2</li>
+</ul>
+This app was deployed to a server using <a href="https://www.shinyapps.io" target="_blank"> shinyapps.io</a>
