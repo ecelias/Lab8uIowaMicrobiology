@@ -33,3 +33,6 @@ Project Dependencies:
   <li>BiodiversityR, version=2.17-1.1</li>
 </ul>
 This app was deployed to a server using <a href="https://www.shinyapps.io" target="_blank"> shinyapps.io</a>
+
+<h3>Contact:</h3>
+For questions regarding this software, please contact <strong>Regina McGrane</strong> at the University of Iowa at regina-mcgrane@uiowa.edu
