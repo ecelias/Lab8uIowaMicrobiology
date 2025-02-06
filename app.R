@@ -583,7 +583,9 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            h2("Taxonomy Heatmap",class="text-light"),
-                           card(plotOutput('heatmap', height="auto")),
+                           card(
+                             plotOutput('heatmap', height="auto"), 
+                             full_screen = TRUE),
                            downloadButton("downloadHeatmap", "Download Plot", class="btn-sm")
                          )
                        )
