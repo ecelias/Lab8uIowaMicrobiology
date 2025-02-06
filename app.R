@@ -20,6 +20,7 @@ library(phyloseqCompanion)
 library(broom)
 library(shinycssloaders)
 library(bslib)
+library(shinyWidgets)
 
 # define helper functions to be utilized in front and back end operations
 # function to take the level 5 file and separate for future use
@@ -84,17 +85,21 @@ createOther <- function(longdata, rarified) {
   otherrows = nrow(longdata)
   
   # create "Other" category
-  for(i in 1:numSamples)
-    for(j in seq(i, otherrows, by=numSamples))
+  for(i in 1:numSamples) {
+    for(j in seq(i, otherrows, by=numSamples)) {
       # rarified data
       if(rarified == TRUE){
-        if(otherdata$Abundance[j]<samples$thresholdRare[i])
+        if(otherdata$Abundance[j]<samples$thresholdRare[i]) {
           otherdata[j,1] <- "Other"
+        }
       }
-  # raw data
-  else {
-    if(otherdata$Abundance[j]<samples$threshold[i])
-      otherdata[j,1] <- "Other"
+      # raw data
+      else if (rarified == FALSE) {
+        if(otherdata$Abundance[j]<samples$threshold[i]){
+          otherdata[j,1] <- "Other"
+        }
+      }
+    }
   }
   
   # convert taxa back to a factor
@@ -259,7 +264,8 @@ coreCaption <- function(df, core) {
   treatment <- paste(unique(metaGlobal$treatment), collapse = "/")
   numCore = nrow(core)
   total = nrow(df)
-  caption = paste("<p><b>Core taxa in", treatment, "treatments:", numCore, "of", total, "taxa are shared between treatments</b><p>")
+  caption = paste("<p class='text-light'>Core taxa in", treatment, "treatments: <b>", numCore, 
+                  "of", total, "taxa are shared between treatments</b></p>")
   return(toString(caption))
 }
 
@@ -285,7 +291,7 @@ uniqueTaxa <- function(level5, treatments){
 }
 
 # function to graph rarefaction curve with ggplot2
-graphRare <- function(x, ylab, bytype) {
+graphRare <- function(x, ylab, bytype, graphTitle) {
   rareSample = list()
   
   # Write values for each sample from a rarecurve function into a list
@@ -299,8 +305,19 @@ graphRare <- function(x, ylab, bytype) {
   rareGraph <- bind_rows(rareSample)
   rareGraph <- merge(rareGraph, metaGlobal, by.x = "Sample", by.y = 1)
   colnames(rareGraph) <- c("Sample", "num_taxa", "num_samples", "Treatment")
-  ggplot(rareGraph, aes(x = num_samples, y = num_taxa, group = Sample, color = .data[[bytype]])) +
-    labs(x = "Sample Size", y = ylab) + theme_bw() + geom_line(size = 1) + guides(fill = guide_legend(title = bytype))
+  ggplot(rareGraph, 
+         aes(x = num_samples, y = num_taxa, group = Sample, color = .data[[bytype]])) + 
+    labs(x = "Sample Size", y = ylab) + theme_bw() + ggtitle(graphTitle) +
+    geom_line(size = 1) + guides(fill = guide_legend(title = bytype)) +
+    theme(
+      axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+      axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+      axis.text.x = element_text(size = 14),   
+      axis.text.y = element_text(size = 14),   
+      legend.title = element_text(size = 16, , face="bold"),  
+      legend.text = element_text(size = 14),
+      plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+    )
 }
 
 # create options for drop down menus used in UI
@@ -319,16 +336,17 @@ ui <- fluidPage(
   tabsetPanel(id = "tabs", 
               tabPanel(value = "tab1", title = "Home", 
                        mainPanel(
-                         h3("Welcome to the Bean Beetle Microbiome Analysis App"),
+                         h3("Welcome to the Bean Beetle Microbiome Analysis App", class="text-light"),
                          p(""),
-                         h4("The Bean Beetle Microbiome Project is a research/teaching collaboration of institutions across the US that is studying the microbiome of", em("Callosobruchus maculatus"), "in research experiences (CUREs)."),
-                         p("This app is designed to lead students through the community analysis of level-5 (family level) datasets produced in DNA subway"),
-                         p("Before proceeding, students should ensure the level 5 file is formatted correctly such that all unidentified taxa, chloroplasts, and mitochondria have been removed. The level 5 file should also be formatted with the first column as taxa and the subsequent columns as samples with unique sample identifiers."),
-                         p("Students should also prepare a metadata file in the first column as samples and the second column as treatments.", strong("Both files should be in .csv format.")), 
-                         p("Additionally, this app should be capable of community analysis for any level 5 data"),
+                         h4("The Bean Beetle Microbiome Project is a research/teaching collaboration of institutions across the US that is studying the microbiome of", em("Callosobruchus maculatus"), "in research experiences (CUREs).", class="text-light"),
+                         p("This app is designed to lead students through the community analysis of level-5 (family level) datasets produced in DNA subway", class="text-light"),
+                         p("Before proceeding, students should ensure the level 5 file is formatted correctly such that all unidentified taxa, chloroplasts, and mitochondria have been removed. 
+                           The level 5 file should also be formatted with the first column as taxa and the subsequent columns as samples with unique sample identifiers.", class="text-light"),
+                         p("Students should also prepare a metadata file in the first column as samples and the second column as treatments.", strong("Both files should be in .csv format."), class="text-light"), 
+                         p("Additionally, this app should be capable of community analysis for any level 5 data", class="text-light"),
                          p(""),
                          
-                         p("This app was reconfigured for the University of Iowa MICR 2158 course based on the source materials from Huang et al., 2022 by Elizabeth Elias, an undergraduate student at the University of Iowa under the guidance of Dr. Regina McGrane, Department of Microbiology and Immunology, University of Iowa"),
+                         p("This app was reconfigured for the University of Iowa MICR 2158 course based on the source materials from Huang et al., 2022 by Elizabeth Elias, an undergraduate student at the University of Iowa under the guidance of Dr. Regina McGrane, Department of Microbiology and Immunology, University of Iowa", class="text-light"),
                          p(tags$a("The original app can be found by clicking here.", href = "https://beanbeetles.shinyapps.io/BeanBeetleMicrobiome/")),
                          p(tags$a("For more information on this CURE project, please click here", href = "https://www.beanbeetles.org/microbiome/the-bean-beetle-microbiome-project/")),
                          p(tags$a("Click here to find the GitHub repo for this project", href = "https://github.com/ecelias/Lab8uIowaMicrobiology"))
@@ -338,20 +356,20 @@ ui <- fluidPage(
               tabPanel(value = "tab2", title = "Data Upload", 
                        sidebarLayout(
                          sidebarPanel(
-                           fileInput("file1", "Choose level 5 CSV file", 
+                           fileInput("file1", p("Choose level 5 CSV file",class="text-light"), 
                                      accept = c(
                                        "text/csv",
                                        "text/comma-separated-values, text/plain",
                                        ".csv")),
                            tags$hr(),
-                           fileInput("file2", "Choose metadata CSV file", 
+                           fileInput("file2", p("Choose metadata CSV file",class="text-light"), 
                                      accept = c(
                                        "text/csv",
                                        "text/comma-separated-values, text/plain",
                                        ".csv")),
                            tags$hr(),
                            card(
-                             "Click run app after selecting files",
+                             p("Click run app after selecting files",class="text-light"),
                              actionButton("run", "Run App")
                            )
                          ), 
@@ -370,7 +388,9 @@ ui <- fluidPage(
                                      "Level 5 File"
                                    ),
                                    card_body(
-                                     tags$i("Ensure the first column is the combined taxa (including kingdom) separated by semi-colons. The remaining columns should contain the abundance data for each sample. The 6 most abundant taxa will be displayed below."),
+                                     tags$i(p("Ensure the first column is the combined taxa (including kingdom) separated by semi-colons. 
+                                              The remaining columns should contain the abundance data for each sample. 
+                                              The 6 most abundant taxa will be displayed below.",class="text-light")),
                                      tags$hr(),
                                      tableOutput("level5Contents"),
                                      tags$hr()
@@ -383,7 +403,8 @@ ui <- fluidPage(
                                      "Metadata File"
                                    ),
                                    card_body(
-                                     tags$i("Ensure the first column lists the samples and the second column lists the treatments for each sample. Your metadata is displayed below."),
+                                     tags$i(p("Ensure the first column lists the samples and the second column lists the treatments for each sample. 
+                                              Your metadata is displayed below.",class="text-light")),
                                      tags$hr(),
                                      tableOutput("metadataContents"),
                                      tags$hr()
@@ -413,14 +434,22 @@ ui <- fluidPage(
                        sidebarLayout(
                          sidebarPanel(
                            card(
+                             # uses shinyWidgets package to create a vertical list of buttons
+                             # to select which taxon they want to view data for
+                             radioGroupButtons(
+                               inputId = "taxonCore",
+                               label = p("Select a taxonomic level:",class="text-light"),
+                               choices = c("Phylum", "Class", "Order", "Family"),
+                               direction = "vertical"
+                             ),
                              ## is there a way to make it so they can quickly click through all 4 taxa levels? instead of dropdown menu
-                             selectInput("taxonCore", "Select a taxon", taxachoices), width = 2
+                             #selectInput("taxonCore", "Select a taxon", taxachoices), width = 2
                            )
                          ),
                          mainPanel(
                            card(
-                             h2("Core Taxa"),
-                             p("Core taxa are those taxa found in all samples."),
+                             h2("Core Taxa",class="text-light"),
+                             p("Core taxa are those taxa found in all samples.",class="text-light"),
                              verticalLayout(htmlOutput("coreCaption"), tableOutput("coreTaxa")), 
                              width = 10
                            )
@@ -432,14 +461,18 @@ ui <- fluidPage(
                        sidebarLayout(
                          sidebarPanel(
                            card(
-                             ## is there a way to make it so they can quickly click through all 4 taxa levels? instead of dropdown menu
-                             selectInput("taxonUnique", "Select a taxon", taxachoices), width = 2
+                             radioGroupButtons(
+                               inputId = "taxonUnique",
+                               label = p("Select a taxonomic level:",class="text-light"),
+                               choices = c("Phylum", "Class", "Order", "Family"),
+                               direction = "vertical"
+                             )
                            )
                          ),
                          mainPanel(
                            card(
-                             h2("Unique Taxa"),
-                             p("Unique taxa are those taxa found in a single treatment."),
+                             h2("Unique Taxa",class="text-light"),
+                             p("Unique taxa are those taxa found in a single treatment.",class="text-light"),
                              textOutput('noUniqueCaptions'),
                              uiOutput('uniqueTables')
                            )
@@ -450,20 +483,27 @@ ui <- fluidPage(
               tabPanel(value = "tab5", title = "Rarefaction", 
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxonRarefy', 'Select a taxonomic level', taxachoices),
-                           selectInput('byType', "Graph by:", sampleOrTreatment)
+                           radioGroupButtons(
+                             inputId = "taxonRarefy",
+                             label = p("Select a taxonomic level:",class="text-light"),
+                             choices = c("Phylum", "Class", "Order", "Family"),
+                             direction = "vertical"
+                           ),
+                           selectInput('byType', p("Graph by:",class="text-light"), sampleOrTreatment)
                          ),
                          mainPanel(
                              card(
-                               h2("Sample Rarefaction Curves"), 
-                               h3("Raw Data"),
+                               h2("Sample Rarefaction Curves",class="text-light"), 
+                               h3("Raw Data",class="text-light"),
                                plotOutput('initialRarefaction', width='100%', height='400px') %>%
-                                 withSpinner(color='#0dc5c1')
+                                 withSpinner(color='#0dc5c1'), 
+                               downloadButton("downloadInitialRarefaction", "Download Plot", class="btn-sm")
                              ),
                              card(
-                               h3('Even rarefaction to minimum number of sequences'),
+                               h3('Even rarefaction to minimum number of sequences',class="text-light"),
                                plotOutput('evenRarefaction', width='100%', height='400px') %>%
-                                 withSpinner(color='#0dc5c1')
+                                 withSpinner(color='#0dc5c1'), 
+                               downloadButton("downloadEvenRarefaction", "Download Plot", class="btn-sm")
                              )
                          )
                        )
@@ -471,12 +511,32 @@ ui <- fluidPage(
               tabPanel(value = "tab6", title = "Taxonomy Bar Graphs", fluid = TRUE,
                        sidebarLayout(
                          sidebarPanel(
-                           selectInput('taxonBar', 'Select a taxonomic level', taxachoices),
-                           selectInput('rawrareBar', 'Select which data to use', rawOrRare),
-                           selectInput('absRel', 'Graph by:', absOrRel), width = 4
+                           radioGroupButtons(
+                             inputId = "taxonBar",
+                             label = p("Select a taxonomic level:",class="text-light"),
+                             choices = c("Phylum", "Class", "Order", "Family"),
+                             direction = "vertical"
+                           ),
+                           radioGroupButtons(
+                             inputId = "rawrareBar",
+                             label = p("Select which data to use:", class="text-light"),
+                             choices = c("Raw Data", 
+                                         "Rarified Data"),
+                             justified = TRUE
+                           ),
+                           radioGroupButtons(
+                             inputId = "absRel",
+                             label = p("Graph By:", class="text-light"),
+                             choices = c("Absolute Abundance", 
+                                         "Relative Abundance"),
+                             justified = TRUE, 
+                             direction = "vertical"
+                           )
                          ),
                          mainPanel(
-                           plotOutput('bargraph',width='100%', height='auto')
+                           plotOutput('bargraph',width='100%', height='auto'), 
+                           tags$hr(),
+                           downloadButton("downloadBar", "Download Plot", class="btn-sm")
                          )
                        )
               ),
@@ -488,7 +548,8 @@ ui <- fluidPage(
                            selectInput('absRel', 'Graph by:', absOrRel), width = 4
                          ),
                          mainPanel(
-                           plotOutput('heatmap', height='auto')
+                           plotOutput('heatmap', height='auto'),
+                           downloadButton("downloadHeatmap", "Download Plot", class="btn-sm")
                          )
                        )
               ),
@@ -502,6 +563,7 @@ ui <- fluidPage(
                          mainPanel(
                            h3('Alpha Diversity'),
                            plotOutput('alphaPlots'), 
+                           downloadButton("downloadAlpha", "Download Plot", class="btn-sm"),
                            tags$hr(), 
                            htmlOutput('alphaCaption'),
                            textOutput('anovaCaption'),
@@ -525,6 +587,7 @@ ui <- fluidPage(
                            h3('Beta Diversity'),
                            plotOutput('ordinationPlot'), 
                            textOutput('ordinationCaption'),
+                           downloadButton("downloadBeta", "Download Plot", class="btn-sm"),
                            tags$hr(), 
                            textOutput('permanovaCaption'),
                            tableOutput('betaPermanova')
@@ -540,6 +603,7 @@ ui <- fluidPage(
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
+  
   # variables for level_5 and metadata
   level5 <- 0
   metadata <- 0
@@ -563,6 +627,7 @@ server <- function(input, output) {
           return(NULL)
         read_csv(inFile2$datapath)
       })
+      
       # upload level 5 and metadata files
       # convert to table format for cards
       observeEvent(input$run, {
@@ -571,6 +636,7 @@ server <- function(input, output) {
         metadata <- metaUpload()
         output$level5Contents <- renderTable({head(level5)})
         output$metadataContents <- renderTable({metadata})
+        
         
         # set column names in metadata to sample and treatment
         colnames(metadata) <- c("sample", "treatment")
@@ -649,7 +715,7 @@ server <- function(input, output) {
           
           if (!length(uniqueDataTables))
           {
-            output$noUniqueCaption <- renderText({"There are no unique taxa."})
+            output$noUniqueCaption <- renderText({"<p class='text-light'>There are no unique taxa.</p>"})
           }
           
           for (i in 1:nrow(treatments)) {
@@ -660,7 +726,9 @@ server <- function(input, output) {
               taxa <- input$taxonUnique
               myList <- get(taxa)
               total <- nrow(myList$columnData)
-              captionTitle <- paste('Unique taxa in', myI, 'treatment:', numUnique, "of", total, "taxa are unique to this treatment")
+              captionTitle = paste("<p class='text-light'>Unique taxa in", myI, "treatment: <b>", numUnique, 
+                              "of", total, "taxa are unique to this treatment</b></p>")
+              #captionTitle <- paste('Unique taxa in', myI, 'treatment:', numUnique, "of", total, "taxa are unique to this treatment")
               
               tablename <- paste0("table", myI)
               output[[tablename]] <- renderTable(
@@ -691,11 +759,25 @@ server <- function(input, output) {
           # accepts matrix-like objects and will not accept an OTU table
           myData <- otu.matrix(myData)
           rarecurveData <- rarecurve(myData, step=20, sample=20, xlab="Sample Size", ylab="Species", label=FALSE, tidy=FALSE)
-          graphRare(rarecurveData, taxa, byType)
+          graphRare(rarecurveData, taxa, byType, "Initial Rarefaction")
         })
+        
         output$initialRarefaction <- renderPlot({whichInitialRarefaction()})
         
-        # select data and create even rarefaction graph
+        output$downloadInitialRarefaction <- downloadHandler(
+          filename = function() {
+            paste("initial_rarefaction_plot.png", sep="")
+          }, 
+          content = function(file) {
+            png(file=file)
+            plot(whichInitialRarefaction())
+            dev.off()
+          }
+        )
+        
+        # Select data and create even rarefaction graph
+        # Uses the rarified OTU table which must be coerced into a matrix
+        # prior to visualization using otu.matrix
         whichEvenRarefaction <- reactive ({
           taxa <- input$taxonRarefy
           byType <- input$byType
@@ -703,9 +785,23 @@ server <- function(input, output) {
           myData <- myList$otuRarefy_t
           myData <- otu.matrix(myData)
           rarecurveData <- rarecurve(myData, step=20, sample=20, xlab="Sample Size", ylab="Species", label=FALSE, tidy=FALSE)
-          graphRare(rarecurveData, taxa, byType)
+          graphRare(rarecurveData, taxa, byType, "Even Rarefaction")
         })
+        
         output$evenRarefaction <- renderPlot({whichEvenRarefaction()})
+        
+        # Functionality for downloading the the evenRareFaction plot
+        output$downloadEvenRarefaction <- downloadHandler(
+          filename = function() {
+            paste("even_rarefaction_plot.png", sep="")
+            }, 
+          content = function(file) {
+            png(file=file)
+            plot(whichEvenRarefaction())
+            dev.off()
+          }
+        )
+        
       }
       
     }
@@ -727,7 +823,16 @@ server <- function(input, output) {
               labs(fill=taxa, y='Absolute Abundance')+
               facet_grid(.~treatment, space='free_x', scales='free_x')+
               theme(legend.position='bottom')+
-              guides(fill=guide_legend(ncol=2))
+              guides(fill=guide_legend(ncol=2)) +
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14, angle=45, vjust=0.5),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14)
+                #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+              )
           }
           else{
             ggplot(data=myData, aes(x=Sample, y=Abundance))+
@@ -812,7 +917,7 @@ server <- function(input, output) {
           geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
                     position = position_dodge(width = 0.8), size = 3, vjust = -0.5)
         })
-        output$alphaplots <- renderPlot({whichAlphaPlot()})
+        output$alphaPlots <- renderPlot({whichAlphaPlot()})
         if(nrow(treatments)==2){
         #create caption from results of t-test
           alphaCaption <- reactive({
@@ -883,7 +988,7 @@ server <- function(input, output) {
             anovaTables <- list(anovaResult,anovaCaption,posthocResult,posthocCaption)
             
             #return list
-            return(anova_tables)
+            return(anovaTables)
           })
         
         #output ANOVA table and caption
