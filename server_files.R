@@ -1,4 +1,20 @@
-# Define server logic required to draw a histogram
+library(BiocManager)
+library(shiny)
+library(tidyverse)
+library(ggplot2)
+library(vegan)
+library(data.table)
+library(readr)
+# installing phyloseq requires Bioconductor and installation of the "igraph" package beforehand
+library(phyloseq)
+library(phyloseqCompanion)
+library(broom)
+library(shinycssloaders)
+library(bslib)
+library(shinyWidgets)
+library(BiodiversityR)
+
+# Define server logic for the shiny app
 server <- function(input, output) {
   # variables for level_5 and metadata
   level_5 <- 0

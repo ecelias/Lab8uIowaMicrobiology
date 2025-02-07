@@ -550,7 +550,7 @@ ui <- fluidPage(
                                  "Raw Data"
                                ),
                                plotOutput('initialRarefaction', width='100%', height='400px') %>%
-                                 withSpinner(color='#0dc5c1'), 
+                                 withSpinner(color='mediumaquamarine'), 
                                # provides option to expand plot into full screen mode
                                full_screen = TRUE, 
                              ),
@@ -563,7 +563,7 @@ ui <- fluidPage(
                                  "Even Rarefaction to Minimum Number of Sequences"
                                ),
                                plotOutput('evenRarefaction', width='100%', height='400px') %>%
-                                 withSpinner(color='#0dc5c1'), 
+                                 withSpinner(color='darkseagreen'), 
                                full_screen = TRUE,
                              ), 
                            downloadButton("downloadEvenRarefaction", "Download Plot", class="btn-sm")
@@ -604,7 +604,7 @@ ui <- fluidPage(
                            h2("Taxonomy Bar Graph",class="text-light"),
                           card(
                             plotOutput('bargraph',width='100%', height='auto') %>%
-                              withSpinner(color='#0dc5c1'),
+                              withSpinner(color='thistle'),
                             full_screen = TRUE
                            ), 
                           downloadButton("downloadBar", "Download Plot", class="btn-sm")
@@ -631,7 +631,7 @@ ui <- fluidPage(
                            h2("Taxonomy Heatmap",class="text-light"),
                            card(
                              plotOutput('heatmap', height="auto") %>%
-                               withSpinner(color='#0dc5c1'), 
+                               withSpinner(color='lemonchiffon'), 
                              full_screen = TRUE),
                            downloadButton("downloadHeatmap", "Download Plot", class="btn-sm")
                          )
@@ -669,7 +669,7 @@ ui <- fluidPage(
                              # panel with single plot
                              nav_panel("Scaled", 
                                        plotOutput("alphaPlots")  %>%
-                                         withSpinner(color='#0dc5c1')
+                                         withSpinner(color='lavender')
                              ), 
                              nav_panel("Side-by-Side", 
                                        card(
@@ -677,24 +677,24 @@ ui <- fluidPage(
                                            card(
                                              h6("Phylum", class="text-light"), 
                                              plotOutput("phylumAlpha")  %>%
-                                               withSpinner(color='#0dc5c1')
+                                               withSpinner(color='plum')
                                            ), 
                                            card(
                                              h6("Class", class="text-light"), 
                                              plotOutput("classAlpha")  %>%
-                                               withSpinner(color='#0dc5c1')
+                                               withSpinner(color='hotpink')
                                            )
                                          ),
                                          layout_columns(
                                            card(
                                              h6("Order", class="text-light"), 
                                              plotOutput("orderAlpha")  %>%
-                                               withSpinner(color='#0dc5c1'), 
+                                               withSpinner(color='violet'), 
                                            ), 
                                            card(
                                              h6("Family", class="text-light"), 
                                              plotOutput("familyAlpha")  %>%
-                                               withSpinner(color='#0dc5c1')
+                                               withSpinner(color='palevioletred')
                                            )
                                          )
                                        )
@@ -756,12 +756,12 @@ ui <- fluidPage(
                              # panel with unscaled plots
                              nav_panel("Unscaled", 
                                        plotOutput("unscaledOrdPlot") %>%
-                                         withSpinner(color='#0dc5c1')
+                                         withSpinner(color='darkslateblue')
                              ),
                              # panel with scaled plots 
                              nav_panel("Scaled", 
                                        plotOutput("scaledOrdPlot")  %>%
-                                         withSpinner(color='#0dc5c1')
+                                         withSpinner(color='darkcyan')
                              ), 
                              nav_panel("Side-by-Side", 
                                        card(
@@ -769,24 +769,24 @@ ui <- fluidPage(
                                            card(
                                              h6("Phylum", class="text-light"), 
                                              plotOutput("phylumBeta")  %>%
-                                               withSpinner(color='#0dc5c1')
+                                               withSpinner(color='cornflowerblue')
                                            ), 
                                            card(
                                              h6("Class", class="text-light"), 
                                              plotOutput("classBeta")  %>%
-                                               withSpinner(color='#0dc5c1')
+                                               withSpinner(color='cadetblue')
                                            )
                                          ),
                                          layout_columns(
                                            card(
                                              h6("Order", class="text-light"), 
                                              plotOutput("orderBeta")  %>%
-                                               withSpinner(color='#0dc5c1'), 
+                                               withSpinner(color='paleturquoise'), 
                                            ), 
                                            card(
                                              h6("Family", class="text-light"), 
                                              plotOutput("familyBeta")  %>%
-                                               withSpinner(color='#0dc5c1')
+                                               withSpinner(color='royalblue')
                                            )
                                          )
                                        )
@@ -802,8 +802,7 @@ ui <- fluidPage(
                          )
                        )
                        
-              ),
-              tabPanel(value = 'tab10', title='Helpful Info!')
+              )
   ),
   theme = bs_theme(preset = "slate")
   # close UI
@@ -1156,86 +1155,88 @@ server <- function(input, output) {
     
     # server side functions for taxa heatmaps
     else if (input$tabs == 'tab7'){
-      heatmapHeight <- reactive({
-        taxa <- input$taxonHeatmap
-        myList <- get(taxa)
-        myData <- myList$longDataOther
-        numTaxa <- nrow(unique(myData[,1]))
+      if(exists("Phylum")){
+        heatmapHeight <- reactive({
+          taxa <- input$taxonHeatmap
+          myList <- get(taxa)
+          myData <- myList$longDataOther
+          numTaxa <- nrow(unique(myData[,1]))
+          
+          # adjusts the height of the plot based on which taxonomic level is selected
+          if(taxa == "Phylum") {
+            height <- max(c(400, numTaxa*15))
+          } else if(taxa == "Class") {
+            height <- max(c(750, numTaxa*15))
+          } else if(taxa == "Order") {
+            height <- max(c(1000, numTaxa*15))
+          } else if(taxa == "Family") {
+            height <- max(c(1500, numTaxa*15))
+          }
+          return(height)
+        })
         
-        # adjusts the height of the plot based on which taxonomic level is selected
-        if(taxa == "Phylum") {
-          height <- max(c(400, numTaxa*15))
-        } else if(taxa == "Class") {
-          height <- max(c(750, numTaxa*15))
-        } else if(taxa == "Order") {
-          height <- max(c(1000, numTaxa*15))
-        } else if(taxa == "Family") {
-          height <- max(c(1500, numTaxa*15))
-        }
-        return(height)
-      })
-      
-      heatmap <- reactive({
-        taxa <- input$taxonHeatmap
-        myList <- get(taxa)
-        if(input$rawrareHeatmap=='Raw Data'){
-          myData <- myList$longData
-        }
-        else{ 
-          myData <- myList$longDataRare
-        }
+        heatmap <- reactive({
+          taxa <- input$taxonHeatmap
+          myList <- get(taxa)
+          if(input$rawrareHeatmap=='Raw Data'){
+            myData <- myList$longData
+          }
+          else{ 
+            myData <- myList$longDataRare
+          }
+          
+          # ensures that y-axis labels only consist of that samples taxonomic level
+          # this shortens the y-axis labels significantly allowing more readbility of figures 
+          if(taxa == "Phylum") {
+            # Extract the second part of the species name (p__Phylum)
+            yLabel <- sapply(as.character(myData[[taxa]]), 
+                             function(x) strsplit(x, " ")[[1]][2])
+            labelTitle <- "Phylum"
+          } else if(taxa == "Class") {
+            # Extract the third part of the species name (c__Class)
+            yLabel <- sapply(as.character(myData[[taxa]]), 
+                             function(x) strsplit(x, " ")[[1]][3])  
+            labelTitle <- "Class"
+          } else if(taxa == "Order") {
+            # Extract the fourth part of the species name (o__Order)
+            yLabel <- sapply(as.character(myData[[taxa]]), 
+                             function(x) strsplit(x, " ")[[1]][4])  
+            labelTitle <- "Order"
+          } else if(taxa == "Family") {
+            # Extract the fifth part of the species name (f__Family)
+            yLabel <- sapply(as.character(myData[[taxa]]), 
+                             function(x) strsplit(x, " ")[[1]][5])  
+            labelTitle <- "Family"
+          }
+          
+          # generate the heatmap
+          ggplot(myData, aes(x=Sample, y=yLabel, fill=Abundance))+
+              geom_tile(color='gray')+ labs(y=labelTitle)+
+              theme(
+                legend.justification='top',
+                axis.text.x=element_text(angle=-90, size =10),
+                axis.title.x = element_text(size = 14, margin = margin(t = 30)),
+                axis.title.y = element_text(size = 14, margin = margin(r = 10)),
+                axis.text.y=element_text(size=8),
+                )+
+              scale_x_discrete(position='top')  # places sample IDs on the top of the graph
+        })
         
-        # ensures that y-axis labels only consist of that samples taxonomic level
-        # this shortens the y-axis labels significantly allowing more readbility of figures 
-        if(taxa == "Phylum") {
-          # Extract the second part of the species name (p__Phylum)
-          yLabel <- sapply(as.character(myData[[taxa]]), 
-                           function(x) strsplit(x, " ")[[1]][2])
-          labelTitle <- "Phylum"
-        } else if(taxa == "Class") {
-          # Extract the third part of the species name (c__Class)
-          yLabel <- sapply(as.character(myData[[taxa]]), 
-                           function(x) strsplit(x, " ")[[1]][3])  
-          labelTitle <- "Class"
-        } else if(taxa == "Order") {
-          # Extract the fourth part of the species name (o__Order)
-          yLabel <- sapply(as.character(myData[[taxa]]), 
-                           function(x) strsplit(x, " ")[[1]][4])  
-          labelTitle <- "Order"
-        } else if(taxa == "Family") {
-          # Extract the fifth part of the species name (f__Family)
-          yLabel <- sapply(as.character(myData[[taxa]]), 
-                           function(x) strsplit(x, " ")[[1]][5])  
-          labelTitle <- "Family"
-        }
+        # obeserve the heatmap
+        observe({output$heatmap <- renderPlot({heatmap()}, height=heatmapHeight())})
         
-        # generate the heatmap
-        ggplot(myData, aes(x=Sample, y=yLabel, fill=Abundance))+
-            geom_tile(color='gray')+ labs(y=labelTitle)+
-            theme(
-              legend.justification='top',
-              axis.text.x=element_text(angle=-90, size =10),
-              axis.title.x = element_text(size = 14, margin = margin(t = 30)),
-              axis.title.y = element_text(size = 14, margin = margin(r = 10)),
-              axis.text.y=element_text(size=8),
-              )+
-            scale_x_discrete(position='top')  # places sample IDs on the top of the graph
-      })
-      
-      # obeserve the heatmap
-      observe({output$heatmap <- renderPlot({heatmap()}, height=heatmapHeight())})
-      
-      # Functionality for downloading the the Bar Graph plot
-      output$downloadHeatmap <- downloadHandler(
-        filename = function() {
-          paste("taxa_heatmap_plot.png", sep="")
-        }, 
-        content = function(file) {
-          png(file=file)
-          plot(heatmap(), height=heatmapHeight())
-          dev.off()
-        }
+        # Functionality for downloading the the Bar Graph plot
+        output$downloadHeatmap <- downloadHandler(
+          filename = function() {
+            paste("taxa_heatmap_plot.png", sep="")
+          }, 
+          content = function(file) {
+            png(file=file)
+            plot(heatmap(), height=heatmapHeight())
+            dev.off()
+          }
       )
+      }
     }
     # server side functions for alpha diversity visualization
     else if (input$tabs == 'tab8'){
