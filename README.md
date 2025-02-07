@@ -2,6 +2,7 @@
 
 <h3> View the App </h3>
 The shiny app can be accessed from this <a href="https://ecelias.shinyapps.io/Lab8uIowaMicrobiology/" target="_blank">link.</a>
+**If viewing the app from this link, please note it was deployed on a free shiny.io plan so if usage exceeds 25 hours per month, the app will not be available. 
 
 <h3>Project Overview</h3>
 
