@@ -5,7 +5,7 @@ The shiny app can be accessed from this <a href="https://ecelias.shinyapps.io/La
 Please use the files linked below if you would like to try this Shiny app:<br>
 <a href="https://github.com/ecelias/Lab8uIowaMicrobiology/blob/main/level5_example.csv" target="_blank"> Level 5 File Example </a><br>
 <a href="https://github.com/ecelias/Lab8uIowaMicrobiology/blob/main/metadata_example.csv" target="_blank"> Metadata File Example </a><br>
-**If viewing the app from this link, please note it was deployed on a free shiny.io plan so if usage exceeds 25 hours per month, the app will not be available. 
+**Please note, If viewing the app from the above link, it was deployed on a free shiny.io plan so if usage exceeds 25 hours per month, the app will not be available. 
 
 <h3>Project Overview</h3>
 
