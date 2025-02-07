@@ -1,14 +1,17 @@
 # Lab8uIowaMicrobiology
 
 <h3> View the App </h3>
-The shiny app can be accessed from this <a href="https://ecelias.shinyapps.io/Lab8uIowaMicrobiology/" target="_blank">link.</a>
+The shiny app can be accessed from this <a href="https://ecelias.shinyapps.io/Lab8uIowaMicrobiology/" target="_blank">link.</a> <br>
+Please use the files linked below if you would like to try this Shiny app:<br>
+<a href="https://github.com/ecelias/Lab8uIowaMicrobiology/blob/main/level5_example.csv" target="_blank"> Level 5 File Example </a><br>
+<a href="https://github.com/ecelias/Lab8uIowaMicrobiology/blob/main/metadata_example.csv" target="_blank"> Metadata File Example </a><br>
 **If viewing the app from this link, please note it was deployed on a free shiny.io plan so if usage exceeds 25 hours per month, the app will not be available. 
 
 <h3>Project Overview</h3>
 
 <p>This RShiny app was reconfigured from source code written by Carolyne Huang from Emory University.</p>
 
-<p>While the original app was more than capable of serving it's purpose, high traffic made it difficult for students at the University of Iowa to use properly. This app will be used by the University of Iowa specifically to reduce site traffic and offer new features such as the ability to save any graphs as a PNG and view multiple taxonomic levels side-by-side rather than one at a time. Additionally, this version contains improvement to figure format so that they are in a more publishable format. </p>
+<p>While the original app was more than capable of serving its purpose, high traffic made it difficult for students at the University of Iowa to use properly. This app will be used by the University of Iowa specifically to reduce site traffic and offer new features such as the ability to save any graphs as a PNG and view multiple taxonomic levels side-by-side rather than one at a time. Additionally, this version contains improvement to figure format so that they are in a more publishable format. </p>
 
 <p>Unfortunately, the code base provided by Emory University did not provide the version of R that was used and contained multiple errors which rendered the app non-functional. Although the version of the app previously used by the University of Iowa functioned as expected, a large portion of the source code had to be altered or updated with non-depracted functions to work correctly.  </p>
 
