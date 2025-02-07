@@ -905,7 +905,8 @@ server <- function(input, output) {
         })
         # returns caption and core taxa table to output
         output$coreCaption <- renderUI({HTML(coreDataCaption())})
-        output$coreTaxa <- renderTable({coreData()},digits=0)
+        output$coreTaxa <- renderTable({coreData()},
+                                       digits=0, striped=TRUE, bordered=TRUE)
       }
     }
     # server side functions for unique taxa visualization
