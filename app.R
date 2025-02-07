@@ -274,7 +274,8 @@ createDatasets <- function(sepTaxa, taxa) {
 coreTaxa <- function(colData) {
   core <- colData %>% filter_if(is.numeric, all_vars(.>0))
   core$abundance <- rowSums(core[,-1], na.rm = TRUE)
-  core <- core[order(-core$abundance)]
+  print(core)
+  #core <- core[order(-core$abundance)]
   return(core)
 }
 
@@ -486,11 +487,9 @@ ui <- fluidPage(
                          mainPanel(
                            # header text for the main panel
                            h2("Core Taxa",class="text-light"),
-                           card(
                              p("Core taxa are those taxa found in all samples.",class="text-light"),
                              # ensure the text is above the table
                              verticalLayout(htmlOutput("coreCaption"), tableOutput("coreTaxa")), 
-                           )
                          )
                        )
                        
@@ -892,6 +891,7 @@ server <- function(input, output) {
           myList <- get(taxa)
           # selects the column data from the list of all taxa-specific datasets
           core <- coreTaxa(myList$columnData)
+          print(core)
           return(core)
         })
         
