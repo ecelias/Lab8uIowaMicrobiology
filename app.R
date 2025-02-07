@@ -24,8 +24,12 @@ library(shinyWidgets)
 library(BiodiversityR)
 
 # define helper functions to be utilized in front and back end operations
-# function to take the level 5 file and separate for future use
+
+# seperate the taxa by taxonomic level from the level 5 file
+# parameters: dataframes from level 5 and metadata files
+# returns: a list of all data separated by taxonomy
 separateTaxa <- function(level5, meta){
+  # create a global variable for the number of samples in the data
   numSamples <<- ncol(level5) - 1
   # sets the first column of the "level 5" taxonomy file to the index
   colnames(level5)[1] <- "index" 
@@ -37,6 +41,7 @@ separateTaxa <- function(level5, meta){
   samples <- level5 %>% summarize_if(is.numeric, sum, na.rm = TRUE)
   samples <- pivot_longer(samples, 1:ncol(samples), names_to = "Sample", values_to = "Abundance")
   
+  # set the threshold for the raw and rare data based on abundance
   samples$threshold <- samples$Abundance * 0.01
   samples$thresholdRare <- min(samples$Abundance) * 0.01
   
@@ -72,6 +77,8 @@ separateTaxa <- function(level5, meta){
 }
 
 # function to create "other" category and reorder
+# parameters: long data and rarified data
+# returns: an updated dataframe sorted by abundance and merged with metadata
 createOther <- function(longdata, rarified) {
   
   # debugging statement
@@ -129,7 +136,9 @@ createOther <- function(longdata, rarified) {
   return(newdata)
 }
 
-# makes datasets to use in future analysis
+# creates all datasets needed in the server-side functions for bioinformatic analysis
+# parameters: a list of all separated taxa, a taxonomic level
+# returns: a list of all datasets needed for server-side functions
 createDatasets <- function(sepTaxa, taxa) {
   
   # select taxonomic dataset
@@ -137,11 +146,10 @@ createDatasets <- function(sepTaxa, taxa) {
   
   # count the number of samples
   numSamples = nrow(sepTaxa$samples)
-  
   numeric_cols <- sapply(x, is.numeric)
   
   # count the number of samples in columns (this will give the abundance of each sample)
-  #columnData <- x %>% group_by_at(1) %>% summarize_if(is.numeric, sum, na.rm = TRUE)
+  # na.rm = TRUE will remove any null value
   columnData <- x %>%
     group_by_at(1) %>%
     summarize(across(where(is.numeric), sum, na.rm = TRUE))
@@ -157,16 +165,21 @@ createDatasets <- function(sepTaxa, taxa) {
   # long data with other (raw) category
   longDataOther <- createOther(longData, FALSE)
   
-  # create datasets to use with phyloseq
+  # create the matrices used to create the OTU and TAX tables with phyloseq
+  # update the rownames with the column that contains species ("sp") identifiers
   otuMatrix <- data.matrix(subset(columnData, select=c(2:ncol(columnData))))
   rownames(otuMatrix) <- paste0("sp", 1:nrow(otuMatrix))
-  
   taxaMatrix <- as.matrix(subset(columnData, select=c(1)))
   rownames(taxaMatrix) <- paste0("sp", 1:nrow(taxaMatrix))
   
+  # create the tables for OTU and TAXA from the matrices
   OTU = otu_table(otuMatrix, taxa_are_rows=TRUE)
   TAX = tax_table(taxaMatrix)
   OTU_t <- t(OTU)
+  
+  # create a dataframe with the sample names as row names
+  # then create a physeq object which will contain the OTU and TAX tables as 
+  # well as a dataframe of all of the sample data
   physeqSamples <- metaGlobal
   rownames(physeqSamples) <- metaGlobal$sample
   physeq = phyloseq(OTU, TAX, sample_data(as.data.frame(physeqSamples)))
@@ -179,10 +192,12 @@ createDatasets <- function(sepTaxa, taxa) {
   
   # Align OTU identifiers between taxaRarefy and otuRarefy
   commonOTUs <- intersect(rownames(taxaRarefy), colnames(otuRarefy_t))
-
+  
+  # debugging statement to ensure that row names of TAXA and OTU tables are aligned
   if (length(commonOTUs) == 0) {
     stop("No common OTUs found between taxaRarefy and otuRarefy. Check your data.")
   }
+  
   # Subset taxaRarefy and otuRarefy to include only common OTUs
   taxaRarefy <- taxaRarefy[commonOTUs, ]
   otuRarefy_t <- otuRarefy_t[, commonOTUs]
@@ -212,7 +227,9 @@ createDatasets <- function(sepTaxa, taxa) {
   colDataRare$abundance <- rowSums(colDataRare[,-1], na.rm = TRUE)
   colDataRare[[1]] <- reorder(colDataRare[[1]], colDataRare$abundance)
   colDataRare <- colDataRare[,-ncol(colDataRare)]
-  longDataRare <- colDataRare %>% pivot_longer(cols = -1, names_to = "Sample", values_to = "Abundance")
+  longDataRare <- colDataRare %>% pivot_longer(cols = -1, 
+                                               names_to = "Sample", 
+                                               values_to = "Abundance")
   
   # long data (rarified) with other
   longDataRareOther <- createOther(longDataRare, TRUE)
@@ -221,20 +238,23 @@ createDatasets <- function(sepTaxa, taxa) {
   richness <- specnumber(OTU_t)
   shannon <- diversity(OTU_t, index = "shannon")
   simpson <- diversity(OTU_t, index = "simpson")
-  diversityResults <- cbind(metaGlobal[,2:ncol(metaGlobal)], richness, shannon, simpson)
+  diversityResults <- cbind(metaGlobal[,2:ncol(metaGlobal)], 
+                            richness, shannon, simpson)
   
+  # update the column names of the diversity results 
   colnames(diversityResults) <- c("treatment", "richness", "shannon", "simpson")
   
   # create dataset with diversity indices based on rarefy data
   richnessRarefy <- specnumber(otuRarefy_t)
   shannonRarefy <- diversity(otuRarefy_t, index = "shannon")
   simpsonRarefy <- diversity(otuRarefy_t, index = "simpson")
-  diversityResultsRarefy <- cbind(metaGlobal[,2:ncol(metaGlobal)], richnessRarefy, shannonRarefy, simpsonRarefy)
+  diversityResultsRarefy <- cbind(metaGlobal[,2:ncol(metaGlobal)], 
+                                  richnessRarefy, shannonRarefy, simpsonRarefy)
   
   # rename columns of rarefied diversity results to be consisted with raw diversity results
   colnames(diversityResultsRarefy) <- c("treatment", "richness", "shannon", "simpson")
   
-  # create a list with datasets
+  # create a list with all of the datasets needed for each figure in the server
   datasetList <- list(columnData = columnData, longData = longData, 
                       longDataOther = longDataOther, OTU = OTU, OTU_t = OTU_t, 
                       physeq = physeq, otuRarefy = otuRarefy, taxa = TAX,
@@ -310,6 +330,7 @@ graphRare <- function(x, ylab, bytype, graphTitle) {
          aes(x = num_samples, y = num_taxa, group = Sample, color = .data[[bytype]])) + 
     labs(x = "Sample Size", y = ylab) + theme_bw() + ggtitle(graphTitle) +
     geom_line(size = 1) + guides(fill = guide_legend(title = bytype)) +
+    # adjust format of axis and legend text
     theme(
       axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
       axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
@@ -324,7 +345,7 @@ graphRare <- function(x, ylab, bytype, graphTitle) {
 # create options for drop down menus used in UI
 # drop down choices will be used to determine visualizations selected in certain tabs
 taxachoices <- list("Phylum", "Class", "Order", "Family")
-rawOrRare <- list("Raw Data", "Rarified Data")
+rawOrRare <- list("Raw"="Raw Data", "Rare"="Rarified Data")
 absOrRel <- list("Absolute Abundance", "Relative Abundance")
 sampleOrTreatment <- list("Sample", "Treatment")
 diversityChoices <- list("Richness"="richness", "Shannon Diversity"="shannon", "Simpson Diversity"="simpson")
@@ -334,7 +355,9 @@ ordinationChoices <- list("NMDS", "PCoA")
 # Define UI for application that draws a histogram
 ui <- fluidPage(
   titlePanel(h1("Bean Beetle Microbiome Analysis", class="text-light")), 
+  # create multiple pages in a tab bar
   tabsetPanel(id = "tabs", 
+              # home page, only contains text
               tabPanel(value = "tab1", title = "Home", 
                        mainPanel(
                          h3("Welcome to the Bean Beetle Microbiome Analysis App", class="text-light"),
@@ -346,22 +369,22 @@ ui <- fluidPage(
                          p("Students should also prepare a metadata file in the first column as samples and the second column as treatments.", strong("Both files should be in .csv format."), class="text-light"), 
                          p("Additionally, this app should be capable of community analysis for any level 5 data.", class="text-light"),
                          p(""),
-                         
                          p("This app was reconfigured for the University of Iowa MICR 2158 course based on the source materials from Huang et al., 2022 by Elizabeth Elias, an undergraduate student at the University of Iowa under the guidance of Dr. Regina McGrane, Department of Microbiology and Immunology, University of Iowa.", class="text-light"),
                          p(tags$a("The original app can be found by clicking here.", href = "https://beanbeetles.shinyapps.io/BeanBeetleMicrobiome/")),
                          p(tags$a("For more information on this CURE project, please click here", href = "https://www.beanbeetles.org/microbiome/the-bean-beetle-microbiome-project/")),
                          p(tags$a("Click here to find the GitHub repo for this project", href = "https://github.com/ecelias/Lab8uIowaMicrobiology"))
                        )
               ),
-              
+              # page for users to upload data
+              # displays a table with their level5 and metadata as well as a rankabundance curve
               tabPanel(value = "tab2", title = "Data Upload", 
                        sidebarLayout(
                          sidebarPanel(
                            fileInput("file1", p("Choose level 5 CSV file",class="text-light"), 
-                                     accept = c(
+                                     accept = c( 
                                        "text/csv",
                                        "text/comma-separated-values, text/plain",
-                                       ".csv")),
+                                       ".csv")), # accept a file input
                            tags$hr(),
                            fileInput("file2", p("Choose metadata CSV file",class="text-light"), 
                                      accept = c(
@@ -388,6 +411,7 @@ ui <- fluidPage(
                                      class = "bg-primary mb-3",
                                      "Level 5 File"
                                    ),
+                                   # card to hold the level 5 data
                                    card_body(
                                      tags$i(p("Ensure the first column is the combined taxa (including kingdom) separated by semi-colons. 
                                               The remaining columns should contain the abundance data for each sample. 
@@ -397,6 +421,7 @@ ui <- fluidPage(
                                      tags$hr()
                                    )
                                  ),
+                                 # card to hold the metadata
                                  card(
                                    height = 350,
                                    card_header(
@@ -413,8 +438,11 @@ ui <- fluidPage(
                                  )
                                )
                              ),
+                             # card for the rank abundance curve
                              card(
                                height = 650,
+                               # card header defines the format of the card, additional
+                               # card formats can be found on bootswatch
                                card_header(
                                  class = "bg-secondary mb-3",
                                  "Rank Abundance Curve"
@@ -435,9 +463,10 @@ ui <- fluidPage(
                        )
               ),
               
-              # Tab to display Core Taxa present in samples
+              # UI to display Core Taxa present in samples
               tabPanel(value = "tab3", title = "Core Taxa",
                        sidebarLayout(
+                         fluid = TRUE,
                          sidebarPanel(
                            card(
                              # uses shinyWidgets package to create a vertical list of buttons
@@ -450,19 +479,23 @@ ui <- fluidPage(
                              ),
                              ## Use this to create a dropdown menu
                              #selectInput("taxonCore", "Select a taxon", taxachoices), width = 2
-                           )
+                           ), 
+                           # manually set the width to 3
+                           width=3
                          ),
                          mainPanel(
+                           # header text for the main panel
+                           h2("Core Taxa",class="text-light"),
                            card(
-                             h2("Core Taxa",class="text-light"),
                              p("Core taxa are those taxa found in all samples.",class="text-light"),
+                             # ensure the text is above the table
                              verticalLayout(htmlOutput("coreCaption"), tableOutput("coreTaxa")), 
-                             width = 10
                            )
                          )
                        )
                        
               ), 
+              # UI to display Unique Taxa present in samples
               tabPanel(value = "tab4", title = "Unique Taxa", 
                        sidebarLayout(
                          sidebarPanel(
@@ -473,11 +506,12 @@ ui <- fluidPage(
                                choices = taxachoices,
                                direction = "vertical"
                              )
-                           )
+                           ), 
+                           width=3
                          ),
                          mainPanel(
+                           h2("Unique Taxa",class="text-light"),
                            card(
-                             h2("Unique Taxa",class="text-light"),
                              p("Unique taxa are those taxa found in a single treatment.",class="text-light"),
                              textOutput('noUniqueCaptions'),
                              uiOutput('uniqueTables')
@@ -486,22 +520,27 @@ ui <- fluidPage(
                        )
                        
               ),
+              # UI to display Rarefaction plots 
               tabPanel(value = "tab5", title = "Rarefaction", 
                        sidebarLayout(
                          sidebarPanel(
+                           # provides option for user to select taxonomic levels
                            radioGroupButtons(
                              inputId = "taxonRarefy",
                              label = p("Select a taxonomic level:",class="text-light"),
                              choices = taxachoices,
                              direction = "vertical"
                            ),
+                           # provides option for user to select if they want to graph
+                           # by sample or treatment
                            radioGroupButtons(
                              inputId = "byType",
                              label = p("Graph By:", class="text-light"),
                              choices = sampleOrTreatment,
                              justified = TRUE, 
                              direction = "vertical"
-                           )
+                           ), 
+                           width=3
                          ),
                          mainPanel(
                            h2("Sample Rarefaction Curves",class="text-light"), 
@@ -512,8 +551,10 @@ ui <- fluidPage(
                                ),
                                plotOutput('initialRarefaction', width='100%', height='400px') %>%
                                  withSpinner(color='#0dc5c1'), 
-                               full_screen = TRUE,
+                               # provides option to expand plot into full screen mode
+                               full_screen = TRUE, 
                              ),
+                           # provides a button to download a png of the plot
                            downloadButton("downloadInitialRarefaction", "Download Plot", class="btn-sm"),
                            tags$hr(),
                              card(
@@ -549,17 +590,21 @@ ui <- fluidPage(
                              choices = absOrRel,
                              direction = "vertical"
                            ), 
+                           # provides an option for the user to toggle the legend
+                           # on and off, mainly available for saving the figure in a preferred format
                            p("Display Legend?", class="text-light"),
                            switchInput(
                              inputId = "hideLegend",
                              onLabel = "Show",
                              offLabel = "Hide"
-                           )
+                           ), 
+                           width=3
                          ),
                          mainPanel(
                            h2("Taxonomy Bar Graph",class="text-light"),
                           card(
-                            plotOutput('bargraph',width='100%', height='auto'),
+                            plotOutput('bargraph',width='100%', height='auto') %>%
+                              withSpinner(color='#0dc5c1'),
                             full_screen = TRUE
                            ), 
                           downloadButton("downloadBar", "Download Plot", class="btn-sm")
@@ -579,12 +624,14 @@ ui <- fluidPage(
                              inputId = "rawrareHeatmap",
                              label = p("Select which data to use:", class="text-light"),
                              choices = rawOrRare
-                           )
+                           ), 
+                           width=3
                          ),
                          mainPanel(
                            h2("Taxonomy Heatmap",class="text-light"),
                            card(
-                             plotOutput('heatmap', height="auto"), 
+                             plotOutput('heatmap', height="auto") %>%
+                               withSpinner(color='#0dc5c1'), 
                              full_screen = TRUE),
                            downloadButton("downloadHeatmap", "Download Plot", class="btn-sm")
                          )
@@ -609,18 +656,23 @@ ui <- fluidPage(
                              label = p("Select a diversity measure:", class="text-light"),
                              choices = diversityChoices,
                              direction="vertical"
-                           )
+                           ), 
+                           width=3
                         ),
                          mainPanel(
                            h3('Alpha Diversity', class="text-light"),
                            card(
-                             plotOutput('alphaPlots'), 
+                             plotOutput('alphaPlots') %>%
+                               withSpinner(color='#0dc5c1'), 
                              full_screen = TRUE
                              ), 
                            downloadButton("downloadAlpha", "Download Plot", class="btn-sm"),
                            tags$hr(), 
+                           # display statistics for alpha diversity as a table
                            h5("Welch's Two-Sided T-test:", class="text-light"),
                            tableOutput('alphaStats'),
+                           # displays ANOVA and posthoc results 
+                           # likely not applicable for UI students
                            textOutput('anovaCaption'),
                            tableOutput('alphaAnova'), 
                            textOutput('posthocCaption'),
@@ -655,21 +707,26 @@ ui <- fluidPage(
                            ),
                            radioGroupButtons(
                              inputId = "samptreat",
-                             label = p("Select distance measure:", class="text-light"),
+                             label = p("Graph by:", class="text-light"),
                              choices = sampleOrTreatment,
-                           )
+                           ), 
+                           width=3
                          ),
                          mainPanel(
                            h3('Beta Diversity', class='text-light'),
+                           # creates a panel so user's can easily switch between scaled
+                           # and unscaled data 
                            navset_card_underline(
                              title = h5("Visualizations", class="text-light"),
-                             # Panel with scaled axis
                              # panel with unscaled plots
                              nav_panel("Unscaled", 
-                                       plotOutput("unscaledOrdPlot"),
+                                       plotOutput("unscaledOrdPlot") %>%
+                                         withSpinner(color='#0dc5c1')
                              ),
+                             # panel with scaled plots 
                              nav_panel("Scaled", 
-                                       plotOutput("scaledOrdPlot"), 
+                                       plotOutput("scaledOrdPlot")  %>%
+                                         withSpinner(color='#0dc5c1')
                                        )
                            ), 
                            tags$hr(),
@@ -697,7 +754,6 @@ server <- function(input, output) {
   metadata <- 0
   
   observeEvent(input$tabs,{
-    
     # if the user goes to tab 2
     # functions to accept the csv files and return a data frame for level 5 and metadata
     # displays the tables the user inputs
@@ -753,7 +809,7 @@ server <- function(input, output) {
             theme_bw()
         })
         
-        # create global datasets for each taxonomix level
+        # create global datasets for each taxonomic level
         Phylum <<- createDatasets(sepTaxa, "phylum")
         Class <<- createDatasets(sepTaxa, "class")
         Order <<- createDatasets(sepTaxa, "order")
@@ -762,12 +818,17 @@ server <- function(input, output) {
     }
     # server side functions for core taxa visualization
     else if(input$tabs == 'tab3'){
+      # all tabs after this will check if data has been uploaded before
+      # attempting to display any data to prevent errors from popping up
       if(exists('Phylum')){
         
         # creates core dataset based on taxonomic level selected for tab4
         coreData <- reactive ({
+          # chooses which taxonomic level to obtain data for based on user input
           taxa <- input$taxonCore
+          # gets the correct taxonomic level data from the global datasets created after data upload
           myList <- get(taxa)
+          # selects the column data from the list of all taxa-specific datasets
           core <- coreTaxa(myList$columnData)
           return(core)
         })
@@ -777,7 +838,7 @@ server <- function(input, output) {
           taxa <- input$taxonCore
           myList <- get(taxa)
           core <- coreTaxa(myList$columnData)
-          caption <- coreCaption(myList$columnData,core)
+          caption <- coreCaption(myList$columnData, core)
           return(caption)
         })
         # returns caption and core taxa table to output
@@ -791,7 +852,7 @@ server <- function(input, output) {
         
         # create unique taxa output for tab 4 
         # creates unique taxa datset based on taxonomic level selected
-        # Create a list with different objects for each treatment
+        # general function: create a list with different objects for each treatment
         uniqueData <- reactive({
           taxa <- input$taxonUnique
           myList <- get(taxa)
@@ -835,7 +896,7 @@ server <- function(input, output) {
               # text color options can be viewed on bootswatch.com
               captionTitle = paste("<p class='text-light'>Unique taxa in", myI, "treatment: <b>", numUnique, 
                               "of", total, "taxa are unique to this treatment</b></p>")
-              
+              # provide functionality to render the table and correctly place the caption
               tablename <- paste0("table", myI)
               output[[tablename]] <- renderTable(
                 {
@@ -870,6 +931,7 @@ server <- function(input, output) {
         
         output$initialRarefaction <- renderPlot({whichInitialRarefaction()})
         
+        # functionality to download the initial rarefaction plot
         output$downloadInitialRarefaction <- downloadHandler(
           filename = function() {
             paste("initial_rarefaction_plot.png", sep="")
@@ -896,7 +958,7 @@ server <- function(input, output) {
         
         output$evenRarefaction <- renderPlot({whichEvenRarefaction()})
         
-        # Functionality for downloading the the evenRareFaction plot
+        # Functionality for downloading the the even rarefaction plot
         output$downloadEvenRarefaction <- downloadHandler(
           filename = function() {
             paste("even_rarefaction_plot.png", sep="")
@@ -923,8 +985,7 @@ server <- function(input, output) {
           else {
             myData <- myList$longDataRareOther
           }
-          # two options that allow user to hide legend if they prefer to 
-          # download the plot that way
+          # allows user to hide legend if they prefer to download the plot that way
           if(!input$hideLegend){
             # if user selects absolute abundance to graph by
             if(input$absRel == 'Absolute Abundance'){ 
@@ -1013,7 +1074,7 @@ server <- function(input, output) {
           return(height)
         })
         
-        # output the taxonomy bar graph 
+        # output the taxonomy bar graph with the correct height
         observe({output$bargraph <- renderPlot({whichBarGraph()}, height = barGraphHeight())})
         
         # Functionality for downloading the the Bar Graph plot
@@ -1037,6 +1098,8 @@ server <- function(input, output) {
         myList <- get(taxa)
         myData <- myList$longDataOther
         numTaxa <- nrow(unique(myData[,1]))
+        
+        # adjusts the height of the plot based on which taxonomic level is selected
         if(taxa == "Phylum") {
           height <- max(c(400, numTaxa*15))
         } else if(taxa == "Class") {
@@ -1059,6 +1122,8 @@ server <- function(input, output) {
           myData <- myList$longDataRare
         }
         
+        # ensures that y-axis labels only consist of that samples taxonomic level
+        # this shortens the y-axis labels significantly allowing more readbility of figures 
         if(taxa == "Phylum") {
           # Extract the second part of the species name (p__Phylum)
           yLabel <- sapply(as.character(myData[[taxa]]), 
@@ -1081,16 +1146,17 @@ server <- function(input, output) {
           labelTitle <- "Family"
         }
         
+        # generate the heatmap
         ggplot(myData, aes(x=Sample, y=yLabel, fill=Abundance))+
             geom_tile(color='gray')+ labs(y=labelTitle)+
             theme(
-              legend.justification='top', 
+              legend.justification='top',
               axis.text.x=element_text(angle=-90, size =10),
               axis.title.x = element_text(size = 14, margin = margin(t = 30)),
               axis.title.y = element_text(size = 14, margin = margin(r = 10)),
               axis.text.y=element_text(size=8),
               )+
-            scale_x_discrete(position='top')
+            scale_x_discrete(position='top')  # places sample IDs on the top of the graph
       })
       
       # obeserve the heatmap
@@ -1135,12 +1201,15 @@ server <- function(input, output) {
         dataMedian <- summarise(group_by(myData, treatment), 
                                 MD = round(median(as.numeric(.data[[whichDiv]])), 2))
         
+        # selects the value for the y-axis based on the list of possible choices 
+        # to correspond with user selection of the diversity measure they want to use
         yLabel <- names(diversityChoices)[grep(whichDiv, diversityChoices)]
         
         ggplot(myData,aes(x=treatment,y=.data[[whichDiv]], fill=treatment))+
+          # "alpha 0.3" makes the fill color of the boxes transluscent
           geom_boxplot(alpha=0.3)+theme_bw()+labs(x="Treatment",y=yLabel)+
           geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
-                    position = position_dodge(width=0.8), 
+                    position = position_dodge(width=0.8), # displays the median value of each boxplot inside the plot
                     size = 5, vjust = -0.5, hjust = 0.5)+
           theme(
             axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
@@ -1151,7 +1220,7 @@ server <- function(input, output) {
             legend.position="none"
             #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
           ) +
-          scale_fill_brewer(palette="Accent")
+          scale_fill_brewer(palette="Accent") # brewer color palette used to fill the box plots
         })
       
         output$alphaPlots <- renderPlot({whichAlphaPlot()})
@@ -1188,19 +1257,25 @@ server <- function(input, output) {
             myData = as.data.frame(myData)
             myData[[whichDiv]] <- as.numeric(myData[[whichDiv]])
             
+            # use the t.test function on the data
             result <- t.test(myData[[whichDiv]]~myData[,1])
             
+            # extract the degrees of freedom, p-value, and t-test statistic from
+            # the result of the t.test function
             result_t <- round(as.numeric(result$statistic,digits=2))
             result_df <- round(as.numeric(result$parameter,digits=2))
             result_p <- round(result$p.value,digits=2)
+            
+            # format the p-value string
             pvalue <- ""
             if(result_p<0.01){
-              pvalue <- "p<0.01"
+              pvalue <- "p < 0.01"
             }
             else{
               pvalue <- paste("p = ",result_p)
             }
             
+            # format the t test stat and degrees of freedom string
             ttest <- sprintf("t = %d", result_t)
             degf <- sprintf("df = %d", result_df)
             
@@ -1211,11 +1286,17 @@ server <- function(input, output) {
             )
             return(alphaStatsTable)
           })
+          
+        # output the table to display Alpha diversity statistics in UI
         output$alphaStats <- renderTable({alphaStats()}, rownames=TRUE, 
                                          striped=TRUE, bordered=TRUE)
         
         }
         else{
+          # this code will likely not be used by the University of Iowa because
+          # the experiments run by undergraduates there only choose two 
+          # experimental conditions
+          
           #create ANOVA table and post-hoc comparisons
           alphaAnova <- reactive({
             taxa <- input$taxonAlphaTest
@@ -1262,6 +1343,7 @@ server <- function(input, output) {
     }
     # server side functions for beta diversity visualization
     else if (input$tabs == 'tab9'){
+      if(exists("Phylum")){
       # return the physeq object
       whichPhySeq <- reactive({
         taxa <- input$taxonBetaTest
@@ -1275,13 +1357,14 @@ server <- function(input, output) {
         return(myPhyseq)
       })
       
-      # make ordination data 
+      # make ordination data using the ordinate() function from phyloseq
       whichOrdinationData <- reactive({
         myOrdData <- ordinate(whichPhySeq(), method=input$ordMethod, distance=input$distMeasure)
         return(myOrdData)
       })
       
-      # plot the ordination
+      # plot the ordination, coord_fixed was removed to ensure that all axis
+      # were of the same scaled
       whichScaledOrdinationPlot <- reactive ({
         if(input$samptreat=='Sample'){
           plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'sample') +
@@ -1315,7 +1398,8 @@ server <- function(input, output) {
         }
       })
       
-      # plot the ordination
+      # plot the ordination without scaling all axes to be equal
+      # this may cause some oddly sized plots based on the input data
       whichUnscaledOrdinationPlot <- reactive ({
         if(input$samptreat=='Sample'){
           plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'sample') +
@@ -1323,7 +1407,7 @@ server <- function(input, output) {
             guides(color = guide_legend(title = "Sample"))+
             stat_ellipse(type='t')+
             theme_bw()+
-            coord_fixed()+
+            coord_fixed()+ # coord-fix may cause some oddly size plots 
             theme(
               axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
               axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
@@ -1349,7 +1433,7 @@ server <- function(input, output) {
         }
       })
       
-      # make the ordination caption (NMDS stress)
+      # make the ordination caption which displays the NMDS stress value
       whichOrdinationCaption <- reactive({
         ordData <- whichOrdinationData()
         if(input$ordMethod=='NMDS'){
@@ -1359,13 +1443,12 @@ server <- function(input, output) {
         # may need to include an else statement here for other ordination methods
       })
       
-      # plot ordination in UI
+      # plot the scaled and unscaled ordination plots in the UI with the caption
       output$scaledOrdPlot <- renderPlot({whichScaledOrdinationPlot()})
       output$unscaledOrdPlot <- renderPlot({whichUnscaledOrdinationPlot()})
-      #output$ordinationCaption <- renderText({whichOrdinationCaption()})
       output$ordinationCaption <-renderUI({HTML(whichOrdinationCaption())})
       
-      # Functionality for downloading the the Beta Diversity plot
+      # Functionality for downloading the scaled Beta Diversity plot
       output$downloadBetaScaled <- downloadHandler(
         filename = function() {
           paste("scaled_beta_diversity_plot.png", sep="")
@@ -1377,7 +1460,7 @@ server <- function(input, output) {
         }
       )
       
-      # Functionality for downloading the the Beta Diversity plot
+      # Functionality for downloading the unscaled Beta Diversity plot
       output$downloadBetaUnscaled <- downloadHandler(
         filename = function() {
           paste("unscaled_beta_diversity_plot.png", sep="")
@@ -1389,7 +1472,9 @@ server <- function(input, output) {
         }
       )
       
-      # return adonis results
+      # function to create permutational multivariate analysis of variance (permanova) 
+      # data for the beta diversity tab. 
+      # Returns: a table containing adonis results
       whichPermanova <- reactive({
         taxa <- input$taxonBetaTest
         myList <- get(taxa)
@@ -1400,18 +1485,19 @@ server <- function(input, output) {
           permMethod <- myList$otuRarefy_t
         }
         
-        # adonis depracated, replaced with adonis2
-        #perm_out <- adonis2(perm_method~treatment, data=metaGlobal, method=input$dist_measure)
         whichDist <- input$distMeasure
+        # use adonis2 function to analyze the variance among distance matrices
         permaOut <- adonis2(permMethod ~ treatment, data = metaGlobal, method=whichDist)
-
+        
+        # format the permanova results as a dataframe
         permanovaResults <- as.data.frame(permaOut)
-        print(permanovaResults)
+        # update the first rowname
         rownames(permanovaResults)[1] <- "Treatment"
         return(permanovaResults)
       })
       output$betaPermanova <- renderTable({whichPermanova()}, rownames=TRUE,
                                           striped=TRUE, bordered=TRUE)
+      }
     }
     # close the observe event
   })
