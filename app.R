@@ -21,7 +21,6 @@ library(broom)
 library(shinycssloaders)
 library(bslib)
 library(shinyWidgets)
-library(BiodiversityR)
 
 # define helper functions to be utilized in front and back end operations
 
@@ -405,7 +404,6 @@ ui <- fluidPage(
                              card(
                                width = 1/2, 
                                height = 300,
-                               layout_columns(
                                  card(
                                    height = 350,
                                    card_header(
@@ -437,28 +435,19 @@ ui <- fluidPage(
                                      tags$hr()
                                    )
                                  )
-                               )
-                             ),
+                               
+                             )
                              # card for the rank abundance curve
-                             card(
-                               height = 650,
+                             # card(
+                               # height = 650,
                                # card header defines the format of the card, additional
                                # card formats can be found on bootswatch
-                               card_header(
-                                 class = "bg-secondary mb-3",
-                                 "Rank Abundance Curve"
-                               ),
-                               card_body(
-                                 tags$i(p("A rank abundance curve or Whittaker plot represents the relative abundance of species within a community.
-                                          by plotting species abundance against its rank order, providing a visualization of both species
-                                          richness and species evenness. A steeper curve indicates that a community is comprised of a few dominant species
-                                          while the others are relatively rare whereas a flatter curve suggests more more even distrubution of species",
-                                          class="text-light")), 
-                                 tags$hr(),
-                                 plotOutput("rankabundancecurve", width = "100%", height = "auto")
-                                 
-                               )
-                             )
+                               # card_header(class = "bg-secondary mb-3","Rank Abundance Curve"),
+                               # card_body(tags$i(p("A rank abundance curve or Whittaker plot represents the relative abundance of species within a community.
+                                          # by plotting species abundance against its rank order, providing a visualization of both species
+                                          # richness and species evenness. A steeper curve indicates that a community is comprised of a few dominant species
+                                          # while the others are relatively rare whereas a flatter curve suggests more more even distrubution of species",
+                                          # class="text-light")), tags$hr(),plotOutput("rankAbundanceCurve")))
                            )
                          )
                        )
@@ -854,21 +843,24 @@ server <- function(input, output) {
         metaGlobal <<- as.data.frame(metadata)
         
         # Prepare data for rank abundance calculation
-        data_long <- level5 %>%
-          gather(Sample, Abundance, -Sample) %>%  # Reshape data
-          group_by(Sample) %>%
-          arrange(desc(Abundance)) %>%
-          mutate(Rank = row_number())
+        #raData <- level5 %>%
+          #gather(Sample, Abundance, -Sample) %>%  # Reshape data
+          #group_by(Sample) %>%
+          #arrange(desc(Abundance), .by_group = TRUE) %>%  # Ensure correct ranking order
+          #mutate(Rank = row_number()) %>%  # Assign ranks correctly
+          #ungroup()  # Remove grouping to avoid errors in conversion
+        
+        #raData$Abundance <- as.numeric(raData$Abundance)
+        #raData$Abundance <- as.numeric(raData$Abundance)
+        #raVector <- sort(raData$Abundance, decreasing = TRUE)
+        
+        #raPlot <- radplot(raVector, Whittaker=FALSE, size=1) +
+          #xlab("Rank") + ylab("Abundance") +
+          #ggtitle("") + theme_bw() +
+          #theme(axis.text.x = element_blank())
         
         # output the rank abundance plot
-        output$rankabundancecurve <- renderPlot({
-          ggplot(data_long, aes(x = Rank, y = Abundance)) +
-            geom_point() +
-            geom_line() +
-            scale_x_continuous(name = "Rank") +
-            scale_y_continuous(name = "Abundance") +
-            theme_bw()
-        })
+        #output$rankAbundanceCurve <- renderPlot({raPlot})
         
         # create global datasets for each taxonomic level
         Phylum <<- createDatasets(sepTaxa, "phylum")

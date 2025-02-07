@@ -13,7 +13,6 @@ library(broom)
 library(shinycssloaders)
 library(bslib)
 library(shinyWidgets)
-library(BiodiversityR)
 
 # define helper functions to be utilized in front and back end operations
 

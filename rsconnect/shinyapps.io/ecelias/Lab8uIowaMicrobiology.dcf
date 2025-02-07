@@ -5,9 +5,9 @@ account: ecelias
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 13919532
-bundleId: 9762033
+bundleId: 9766619
 url: https://ecelias.shinyapps.io/Lab8uIowaMicrobiology/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: helperFunctions.R|server_files.R|user_interface.R
+ignoredFiles: helperFunctions.R|level5_example.csv|metadata_example.csv|server_files.R|user_interface.R

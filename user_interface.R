@@ -12,7 +12,6 @@ library(broom)
 library(shinycssloaders)
 library(bslib)
 library(shinyWidgets)
-library(BiodiversityR)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -66,60 +65,50 @@ ui <- fluidPage(
                              card(
                                width = 1/2, 
                                height = 300,
-                               layout_columns(
-                                 card(
-                                   height = 350,
-                                   card_header(
-                                     class = "bg-primary mb-3",
-                                     "Level 5 File"
-                                   ),
-                                   # card to hold the level 5 data
-                                   card_body(
-                                     tags$i(p("Ensure the first column is the combined taxa (including kingdom) separated by semi-colons. 
+                               card(
+                                 height = 350,
+                                 card_header(
+                                   class = "bg-primary mb-3",
+                                   "Level 5 File"
+                                 ),
+                                 # card to hold the level 5 data
+                                 card_body(
+                                   tags$i(p("Ensure the first column is the combined taxa (including kingdom) separated by semi-colons. 
                                               The remaining columns should contain the abundance data for each sample. 
                                               The 6 most abundant taxa will be displayed below.",class="text-light")),
-                                     tags$hr(),
-                                     tableOutput("level5Contents"),
-                                     tags$hr()
-                                   )
+                                   tags$hr(),
+                                   tableOutput("level5Contents"),
+                                   tags$hr()
+                                 )
+                               ),
+                               # card to hold the metadata
+                               card(
+                                 height = 350,
+                                 card_header(
+                                   class = "bg-primary mb-3",
+                                   "Metadata File"
                                  ),
-                                 # card to hold the metadata
-                                 card(
-                                   height = 350,
-                                   card_header(
-                                     class = "bg-primary mb-3",
-                                     "Metadata File"
-                                   ),
-                                   card_body(
-                                     tags$i(p("Ensure the first column lists the samples and the second column lists the treatments for each sample. 
+                                 card_body(
+                                   tags$i(p("Ensure the first column lists the samples and the second column lists the treatments for each sample. 
                                               Your metadata is displayed below.",class="text-light")),
-                                     tags$hr(),
-                                     tableOutput("metadataContents"),
-                                     tags$hr()
-                                   )
+                                   tags$hr(),
+                                   tableOutput("metadataContents"),
+                                   tags$hr()
                                  )
                                )
-                             ),
-                             # card for the rank abundance curve
-                             card(
-                               height = 650,
-                               # card header defines the format of the card, additional
-                               # card formats can be found on bootswatch
-                               card_header(
-                                 class = "bg-secondary mb-3",
-                                 "Rank Abundance Curve"
-                               ),
-                               card_body(
-                                 tags$i(p("A rank abundance curve or Whittaker plot represents the relative abundance of species within a community.
-                                          by plotting species abundance against its rank order, providing a visualization of both species
-                                          richness and species evenness. A steeper curve indicates that a community is comprised of a few dominant species
-                                          while the others are relatively rare whereas a flatter curve suggests more more even distrubution of species",
-                                          class="text-light")), 
-                                 tags$hr(),
-                                 plotOutput("rankabundancecurve", width = "100%", height = "auto")
-                                 
-                               )
+                               
                              )
+                             # card for the rank abundance curve
+                             # card(
+                             # height = 650,
+                             # card header defines the format of the card, additional
+                             # card formats can be found on bootswatch
+                             # card_header(class = "bg-secondary mb-3","Rank Abundance Curve"),
+                             # card_body(tags$i(p("A rank abundance curve or Whittaker plot represents the relative abundance of species within a community.
+                             # by plotting species abundance against its rank order, providing a visualization of both species
+                             # richness and species evenness. A steeper curve indicates that a community is comprised of a few dominant species
+                             # while the others are relatively rare whereas a flatter curve suggests more more even distrubution of species",
+                             # class="text-light")), tags$hr(),plotOutput("rankAbundanceCurve")))
                            )
                          )
                        )

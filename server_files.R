@@ -12,7 +12,6 @@ library(broom)
 library(shinycssloaders)
 library(bslib)
 library(shinyWidgets)
-library(BiodiversityR)
 
 # Define server logic for the shiny app
 server <- function(input, output) {
@@ -57,6 +56,26 @@ server <- function(input, output) {
         samples <<- sep_taxa$samples
         treatments <<- sep_taxa$treatments
         meta_global <<- metadata
+        
+        # Prepare data for rank abundance calculation
+        #raData <- level5 %>%
+        #gather(Sample, Abundance, -Sample) %>%  # Reshape data
+        #group_by(Sample) %>%
+        #arrange(desc(Abundance), .by_group = TRUE) %>%  # Ensure correct ranking order
+        #mutate(Rank = row_number()) %>%  # Assign ranks correctly
+        #ungroup()  # Remove grouping to avoid errors in conversion
+        
+        #raData$Abundance <- as.numeric(raData$Abundance)
+        #raData$Abundance <- as.numeric(raData$Abundance)
+        #raVector <- sort(raData$Abundance, decreasing = TRUE)
+        
+        #raPlot <- radplot(raVector, Whittaker=FALSE, size=1) +
+        #xlab("Rank") + ylab("Abundance") +
+        #ggtitle("") + theme_bw() +
+        #theme(axis.text.x = element_blank())
+        
+        # output the rank abundance plot
+        #output$rankAbundanceCurve <- renderPlot({raPlot})
         
         # create global datasets for each taxonomix level
         Phylum <<- create_datasets(sep_taxa, "phylum")
