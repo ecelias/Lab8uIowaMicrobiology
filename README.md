@@ -1,5 +1,8 @@
 # Lab8uIowaMicrobiology
 
+<h3> View the App </h3>
+The shiny app can be accessed from this <a href="https://ecelias.shinyapps.io/Lab8uIowaMicrobiology/" target="_blank">link.</a>
+
 <h3>Project Overview</h3>
 
 <p>This RShiny app was reconfigured from source code written by Carolyne Huang from Emory University.</p>
