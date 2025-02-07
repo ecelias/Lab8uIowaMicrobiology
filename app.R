@@ -661,11 +661,45 @@ ui <- fluidPage(
                         ),
                          mainPanel(
                            h3('Alpha Diversity', class="text-light"),
-                           card(
-                             plotOutput('alphaPlots') %>%
-                               withSpinner(color='#0dc5c1'), 
-                             full_screen = TRUE
+                           # creates a panel so user's can easily switch between viewing
+                           # a single taxonomic levele and viewing all taxonomic levels
+                           # side by side for easy comparison
+                           navset_card_underline(
+                             title = h5("Visualizations", class="text-light"),
+                             # panel with single plot
+                             nav_panel("Scaled", 
+                                       plotOutput("alphaPlots")  %>%
+                                         withSpinner(color='#0dc5c1')
                              ), 
+                             nav_panel("Side-by-Side", 
+                                       card(
+                                         layout_columns(
+                                           card(
+                                             h6("Phylum", class="text-light"), 
+                                             plotOutput("phylumAlpha")  %>%
+                                               withSpinner(color='#0dc5c1')
+                                           ), 
+                                           card(
+                                             h6("Class", class="text-light"), 
+                                             plotOutput("classAlpha")  %>%
+                                               withSpinner(color='#0dc5c1')
+                                           )
+                                         ),
+                                         layout_columns(
+                                           card(
+                                             h6("Order", class="text-light"), 
+                                             plotOutput("orderAlpha")  %>%
+                                               withSpinner(color='#0dc5c1'), 
+                                           ), 
+                                           card(
+                                             h6("Family", class="text-light"), 
+                                             plotOutput("familyAlpha")  %>%
+                                               withSpinner(color='#0dc5c1')
+                                           )
+                                         )
+                                       )
+                             )
+                           ), 
                            downloadButton("downloadAlpha", "Download Plot", class="btn-sm"),
                            tags$hr(), 
                            # display statistics for alpha diversity as a table
@@ -715,7 +749,8 @@ ui <- fluidPage(
                          mainPanel(
                            h3('Beta Diversity', class='text-light'),
                            # creates a panel so user's can easily switch between scaled
-                           # and unscaled data 
+                           # and unscaled data in addition to viewing all taxonomic levels
+                           # side by side for easy comparison
                            navset_card_underline(
                              title = h5("Visualizations", class="text-light"),
                              # panel with unscaled plots
@@ -727,7 +762,35 @@ ui <- fluidPage(
                              nav_panel("Scaled", 
                                        plotOutput("scaledOrdPlot")  %>%
                                          withSpinner(color='#0dc5c1')
+                             ), 
+                             nav_panel("Side-by-Side", 
+                                       card(
+                                         layout_columns(
+                                           card(
+                                             h6("Phylum", class="text-light"), 
+                                             plotOutput("phylumBeta")  %>%
+                                               withSpinner(color='#0dc5c1')
+                                           ), 
+                                           card(
+                                             h6("Class", class="text-light"), 
+                                             plotOutput("classBeta")  %>%
+                                               withSpinner(color='#0dc5c1')
+                                           )
+                                         ),
+                                         layout_columns(
+                                           card(
+                                             h6("Order", class="text-light"), 
+                                             plotOutput("orderBeta")  %>%
+                                               withSpinner(color='#0dc5c1'), 
+                                           ), 
+                                           card(
+                                             h6("Family", class="text-light"), 
+                                             plotOutput("familyBeta")  %>%
+                                               withSpinner(color='#0dc5c1')
+                                           )
+                                         )
                                        )
+                             )
                            ), 
                            tags$hr(),
                            htmlOutput('ordinationCaption'),
@@ -1177,53 +1240,189 @@ server <- function(input, output) {
     # server side functions for alpha diversity visualization
     else if (input$tabs == 'tab8'){
       if(exists("Phylum")){
-      # create a boxplot of alpha diversity depending on taxa, data type, and index
-      whichAlphaPlot <- reactive({
-        taxa <- input$taxonAlphaTest
-        myList <- get(taxa)
-        if(input$rawrareAlpha == 'Raw Data'){
-          myData <- myList$diversityResults
-        }
-        else{
-          myData <- myList$diversityResultsRarefy
-        }
-
-        whichDiv <- input$divMeasure
+        # create a boxplot of alpha diversity depending on taxa, data type, and index
+        whichAlphaPlot <- reactive({
+          taxa <- input$taxonAlphaTest
+          myList <- get(taxa)
+          if(input$rawrareAlpha == 'Raw Data'){
+            myData <- myList$diversityResults
+          }
+          else{
+            myData <- myList$diversityResultsRarefy
+          }
+  
+          whichDiv <- input$divMeasure
+          
+          # coerce "myData" into a dataframe so that the group_by function
+          # is able to use it, group_by() only accepts tbl data type
+          # Additionally, ensure data is numeric 
+          myData = as.data.frame(myData)
+          myData[[whichDiv]] <- as.numeric(myData[[whichDiv]])
+          
+          # for each treatment, calculate the median of whatever diversity measure the user selects
+          # then create a tbl with the treatments and the median of the div. measure
+          dataMedian <- summarise(group_by(myData, treatment), 
+                                  MD = round(median(as.numeric(.data[[whichDiv]])), 2))
+          
+          # selects the value for the y-axis based on the list of possible choices 
+          # to correspond with user selection of the diversity measure they want to use
+          yLabel <- names(diversityChoices)[grep(whichDiv, diversityChoices)]
+          
+          ggplot(myData,aes(x=treatment,y=.data[[whichDiv]], fill=treatment))+
+            # "alpha 0.3" makes the fill color of the boxes transluscent
+            geom_boxplot(alpha=0.3)+theme_bw()+labs(x="Treatment",y=yLabel)+
+            geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
+                      position = position_dodge(width=0.8), # displays the median value of each boxplot inside the plot
+                      size = 5, vjust = -0.5, hjust = 0.5)+
+            theme(
+              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+              axis.text.x = element_text(size = 14),   
+              axis.text.y = element_text(size = 14),   
+              strip.text = element_text(size = 16), 
+              legend.position="none"
+              #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+            ) +
+            scale_fill_brewer(palette="Accent") # brewer color palette used to fill the box plots
+          })
         
-        # coerce "myData" into a dataframe so that the group_by function
-        # is able to use it, group_by() only accepts tbl data type
-        # Additionally, ensure data is numeric 
-        myData = as.data.frame(myData)
-        myData[[whichDiv]] <- as.numeric(myData[[whichDiv]])
+        # create a boxplot of alpha diversity from phylum data only
+        phylumAlphaPlot <- reactive({
+          myList <- get("Phylum")
+          if(input$rawrareAlpha == 'Raw Data'){
+            myData <- myList$diversityResults
+          }
+          else{
+            myData <- myList$diversityResultsRarefy
+          }
+          
+          whichDiv <- input$divMeasure
+          myData = as.data.frame(myData)
+          myData[[whichDiv]] <- as.numeric(myData[[whichDiv]])
+          dataMedian <- summarise(group_by(myData, treatment), 
+                                  MD = round(median(as.numeric(.data[[whichDiv]])), 2))
+          yLabel <- names(diversityChoices)[grep(whichDiv, diversityChoices)]
+          
+          ggplot(myData,aes(x=treatment,y=.data[[whichDiv]], fill=treatment))+
+            geom_boxplot(alpha=0.3)+theme_bw()+labs(x="Treatment",y=yLabel)+
+            geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
+                      position = position_dodge(width=0.8),
+                      size = 5, vjust = -0.5, hjust = 0.5)+
+            theme(
+              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+              axis.text.x = element_text(size = 14),   
+              axis.text.y = element_text(size = 14),   
+              strip.text = element_text(size = 16), 
+              legend.position="none"
+            ) +
+            scale_fill_brewer(palette="Accent") 
+        })
         
-        # for each treatment, calculate the median of whatever diversity measure the user selects
-        # then create a tbl with the treatments and the median of the div. measure
-        dataMedian <- summarise(group_by(myData, treatment), 
-                                MD = round(median(as.numeric(.data[[whichDiv]])), 2))
+        # create a boxplot of alpha diversity from class data only
+        classAlphaPlot <- reactive({
+          myList <- get("Class")
+          if(input$rawrareAlpha == 'Raw Data'){
+            myData <- myList$diversityResults
+          }
+          else{
+            myData <- myList$diversityResultsRarefy
+          }
+          
+          whichDiv <- input$divMeasure
+          myData = as.data.frame(myData)
+          myData[[whichDiv]] <- as.numeric(myData[[whichDiv]])
+          dataMedian <- summarise(group_by(myData, treatment), 
+                                  MD = round(median(as.numeric(.data[[whichDiv]])), 2))
+          yLabel <- names(diversityChoices)[grep(whichDiv, diversityChoices)]
+          
+          ggplot(myData,aes(x=treatment,y=.data[[whichDiv]], fill=treatment))+
+            geom_boxplot(alpha=0.3)+theme_bw()+labs(x="Treatment",y=yLabel)+
+            geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
+                      position = position_dodge(width=0.8),
+                      size = 5, vjust = -0.5, hjust = 0.5)+
+            theme(
+              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+              axis.text.x = element_text(size = 14),   
+              axis.text.y = element_text(size = 14),   
+              strip.text = element_text(size = 16), 
+              legend.position="none"
+            ) +
+            scale_fill_brewer(palette="Accent") 
+        })
         
-        # selects the value for the y-axis based on the list of possible choices 
-        # to correspond with user selection of the diversity measure they want to use
-        yLabel <- names(diversityChoices)[grep(whichDiv, diversityChoices)]
+        # create a boxplot of alpha diversity from order data only
+        orderAlphaPlot <- reactive({
+          myList <- get("Order")
+          if(input$rawrareAlpha == 'Raw Data'){
+            myData <- myList$diversityResults
+          }
+          else{
+            myData <- myList$diversityResultsRarefy
+          }
+          
+          whichDiv <- input$divMeasure
+          myData = as.data.frame(myData)
+          myData[[whichDiv]] <- as.numeric(myData[[whichDiv]])
+          dataMedian <- summarise(group_by(myData, treatment), 
+                                  MD = round(median(as.numeric(.data[[whichDiv]])), 2))
+          yLabel <- names(diversityChoices)[grep(whichDiv, diversityChoices)]
+          
+          ggplot(myData,aes(x=treatment,y=.data[[whichDiv]], fill=treatment))+
+            geom_boxplot(alpha=0.3)+theme_bw()+labs(x="Treatment",y=yLabel)+
+            geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
+                      position = position_dodge(width=0.8),
+                      size = 5, vjust = -0.5, hjust = 0.5)+
+            theme(
+              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+              axis.text.x = element_text(size = 14),   
+              axis.text.y = element_text(size = 14),   
+              strip.text = element_text(size = 16), 
+              legend.position="none"
+            ) +
+            scale_fill_brewer(palette="Accent") 
+        })
         
-        ggplot(myData,aes(x=treatment,y=.data[[whichDiv]], fill=treatment))+
-          # "alpha 0.3" makes the fill color of the boxes transluscent
-          geom_boxplot(alpha=0.3)+theme_bw()+labs(x="Treatment",y=yLabel)+
-          geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
-                    position = position_dodge(width=0.8), # displays the median value of each boxplot inside the plot
-                    size = 5, vjust = -0.5, hjust = 0.5)+
-          theme(
-            axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
-            axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
-            axis.text.x = element_text(size = 14),   
-            axis.text.y = element_text(size = 14),   
-            strip.text = element_text(size = 16), 
-            legend.position="none"
-            #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
-          ) +
-          scale_fill_brewer(palette="Accent") # brewer color palette used to fill the box plots
+        # create a boxplot of alpha diversity from family data only
+        familyAlphaPlot <- reactive({
+          myList <- get("Family")
+          if(input$rawrareAlpha == 'Raw Data'){
+            myData <- myList$diversityResults
+          }
+          else{
+            myData <- myList$diversityResultsRarefy
+          }
+          
+          whichDiv <- input$divMeasure
+          myData = as.data.frame(myData)
+          myData[[whichDiv]] <- as.numeric(myData[[whichDiv]])
+          dataMedian <- summarise(group_by(myData, treatment), 
+                                  MD = round(median(as.numeric(.data[[whichDiv]])), 2))
+          yLabel <- names(diversityChoices)[grep(whichDiv, diversityChoices)]
+          
+          ggplot(myData,aes(x=treatment,y=.data[[whichDiv]], fill=treatment))+
+            geom_boxplot(alpha=0.3)+theme_bw()+labs(x="Treatment",y=yLabel)+
+            geom_text(data = dataMedian, aes(treatment, MD, label = MD), 
+                      position = position_dodge(width=0.8),
+                      size = 5, vjust = -0.5, hjust = 0.5)+
+            theme(
+              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+              axis.text.x = element_text(size = 14),   
+              axis.text.y = element_text(size = 14),   
+              strip.text = element_text(size = 16), 
+              legend.position="none"
+            ) +
+            scale_fill_brewer(palette="Accent") 
         })
       
         output$alphaPlots <- renderPlot({whichAlphaPlot()})
+        output$phylumAlpha <- renderPlot({phylumAlphaPlot()})
+        output$classAlpha <- renderPlot({classAlphaPlot()})
+        output$orderAlpha <- renderPlot({orderAlphaPlot()})
+        output$familyAlpha <- renderPlot({familyAlphaPlot()})
         
         # Functionality for downloading the the Alpha Diversity plot
         output$downloadAlpha <- downloadHandler(
@@ -1344,160 +1543,345 @@ server <- function(input, output) {
     # server side functions for beta diversity visualization
     else if (input$tabs == 'tab9'){
       if(exists("Phylum")){
-      # return the physeq object
-      whichPhySeq <- reactive({
-        taxa <- input$taxonBetaTest
-        myList <- get(taxa)
-        if(input$rawrareBeta=='Raw Data'){
-          myPhyseq <- myList$physeq
-        }
-        else{
-          myPhyseq <- myList$physeqRare
-        }
-        return(myPhyseq)
-      })
-      
-      # make ordination data using the ordinate() function from phyloseq
-      whichOrdinationData <- reactive({
-        myOrdData <- ordinate(whichPhySeq(), method=input$ordMethod, distance=input$distMeasure)
-        return(myOrdData)
-      })
-      
-      # plot the ordination, coord_fixed was removed to ensure that all axis
-      # were of the same scaled
-      whichScaledOrdinationPlot <- reactive ({
-        if(input$samptreat=='Sample'){
-          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'sample') +
-            # change the axis title
-            guides(color = guide_legend(title = "Sample"))+
-            stat_ellipse(type='t')+
-            theme_bw()+
-            #coord_fixed()+
-            theme(
-              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
-              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
-              axis.text.x = element_text(size = 14),   
-              axis.text.y = element_text(size = 14),   
-              legend.title = element_text(size = 16, , face="bold"),  
-              legend.text = element_text(size = 14),
-            )
-        } else if (input$samptreat=='Treatment'){
-          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'treatment') +
-            guides(color = guide_legend(title = "Treatment"))+
-            stat_ellipse(type='t')+
-            theme_bw()+
-            #coord_fixed()+
-            theme(
-              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
-              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
-              axis.text.x = element_text(size = 14),   
-              axis.text.y = element_text(size = 14),   
-              legend.title = element_text(size = 16, , face="bold"),  
-              legend.text = element_text(size = 14),
-            )
-        }
-      })
-      
-      # plot the ordination without scaling all axes to be equal
-      # this may cause some oddly sized plots based on the input data
-      whichUnscaledOrdinationPlot <- reactive ({
-        if(input$samptreat=='Sample'){
-          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'sample') +
-            # change the axis title
-            guides(color = guide_legend(title = "Sample"))+
-            stat_ellipse(type='t')+
-            theme_bw()+
-            coord_fixed()+ # coord-fix may cause some oddly size plots 
-            theme(
-              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
-              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
-              axis.text.x = element_text(size = 14),   
-              axis.text.y = element_text(size = 14),   
-              legend.title = element_text(size = 16, , face="bold"),  
-              legend.text = element_text(size = 14),
-            )
-        } else if (input$samptreat=='Treatment'){
-          plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'treatment') +
-            guides(color = guide_legend(title = "Treatment"))+
-            stat_ellipse(type='t')+
-            theme_bw()+
-            coord_fixed()+
-            theme(
-              axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
-              axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
-              axis.text.x = element_text(size = 14),   
-              axis.text.y = element_text(size = 14),   
-              legend.title = element_text(size = 16, , face="bold"),  
-              legend.text = element_text(size = 14),
-            )
-        }
-      })
-      
-      # make the ordination caption which displays the NMDS stress value
-      whichOrdinationCaption <- reactive({
-        ordData <- whichOrdinationData()
-        if(input$ordMethod=='NMDS'){
-          ordCap <- paste("<p class='text-light'>NMDS results: stress =", round(ordData$stress, digits=4), "</p>")
-          ordCap <- toString(ordCap)
-        }
-        # may need to include an else statement here for other ordination methods
-      })
-      
-      # plot the scaled and unscaled ordination plots in the UI with the caption
-      output$scaledOrdPlot <- renderPlot({whichScaledOrdinationPlot()})
-      output$unscaledOrdPlot <- renderPlot({whichUnscaledOrdinationPlot()})
-      output$ordinationCaption <-renderUI({HTML(whichOrdinationCaption())})
-      
-      # Functionality for downloading the scaled Beta Diversity plot
-      output$downloadBetaScaled <- downloadHandler(
-        filename = function() {
-          paste("scaled_beta_diversity_plot.png", sep="")
-        }, 
-        content = function(file) {
-          png(file=file)
-          plot(whichScaledOrdinationPlot())
-          dev.off()
-        }
-      )
-      
-      # Functionality for downloading the unscaled Beta Diversity plot
-      output$downloadBetaUnscaled <- downloadHandler(
-        filename = function() {
-          paste("unscaled_beta_diversity_plot.png", sep="")
-        }, 
-        content = function(file) {
-          png(file=file)
-          plot(whichUnscaledOrdinationPlot())
-          dev.off()
-        }
-      )
-      
-      # function to create permutational multivariate analysis of variance (permanova) 
-      # data for the beta diversity tab. 
-      # Returns: a table containing adonis results
-      whichPermanova <- reactive({
-        taxa <- input$taxonBetaTest
-        myList <- get(taxa)
-        if(input$rawrareBeta == 'Raw Data'){
-          permMethod <- myList$OTU_t
-        }
-        else{
-          permMethod <- myList$otuRarefy_t
-        }
+        # get the taxonomic level the user selects
+        whichTaxa <- reactive({
+          taxa <- input$taxonBetaTest
+          return(taxa)
+        })
+          
+        # return the physeq object
+        whichPhySeq <- reactive({
+          taxa <- whichTaxa()
+          myList <- get(taxa)
+          if(input$rawrareBeta=='Raw Data'){
+            myPhyseq <- myList$physeq
+          }
+          else{
+            myPhyseq <- myList$physeqRare
+          }
+          return(myPhyseq)
+        })
         
-        whichDist <- input$distMeasure
-        # use adonis2 function to analyze the variance among distance matrices
-        permaOut <- adonis2(permMethod ~ treatment, data = metaGlobal, method=whichDist)
+        # make ordination data using the ordinate() function from phyloseq
+        whichOrdinationData <- reactive({
+          myOrdData <- ordinate(whichPhySeq(), method=input$ordMethod, distance=input$distMeasure)
+          return(myOrdData)
+        })
         
-        # format the permanova results as a dataframe
-        permanovaResults <- as.data.frame(permaOut)
-        # update the first rowname
-        rownames(permanovaResults)[1] <- "Treatment"
-        return(permanovaResults)
-      })
-      output$betaPermanova <- renderTable({whichPermanova()}, rownames=TRUE,
-                                          striped=TRUE, bordered=TRUE)
-      }
+        # plot the ordination, coord_fixed was removed to ensure that all axis
+        # were of the same scaled
+        whichScaledOrdinationPlot <- reactive ({
+          if(input$samptreat=='Sample'){
+            plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'sample') +
+              # change the axis title
+              guides(color = guide_legend(title = "Sample"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          } else if (input$samptreat=='Treatment'){
+            plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'treatment') +
+              guides(color = guide_legend(title = "Treatment"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          }
+        })
+        
+        # plot the ordination for specifically phylum data
+        phylumScaledOrdinationPlot <- reactive ({
+          myList <- get("Phylum")
+          if(input$rawrareBeta=='Raw Data'){
+            myPhyseq <- myList$physeq
+          }
+          else{
+            myPhyseq <- myList$physeqRare
+          }
+          
+          myOrdData <- ordinate(myPhyseq, method=input$ordMethod, distance=input$distMeasure)
+          
+          if(input$samptreat=='Sample'){
+            plot_ordination(myPhyseq, myOrdData, color = 'sample') +
+              # change the axis title
+              guides(color = guide_legend(title = "Sample"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          } else if (input$samptreat=='Treatment'){
+            plot_ordination(myPhyseq, myOrdData, color = 'treatment') +
+              guides(color = guide_legend(title = "Treatment"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          }
+        })
+        # plot the ordination for specifically class data
+        classScaledOrdinationPlot <- reactive ({
+          myList <- get("Class")
+          if(input$rawrareBeta=='Raw Data'){
+            myPhyseq <- myList$physeq
+          }
+          else{
+            myPhyseq <- myList$physeqRare
+          }
+          
+          myOrdData <- ordinate(myPhyseq, method=input$ordMethod, distance=input$distMeasure)
+          
+          if(input$samptreat=='Sample'){
+            plot_ordination(myPhyseq, myOrdData, color = 'sample') +
+              # change the axis title
+              guides(color = guide_legend(title = "Sample"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          } else if (input$samptreat=='Treatment'){
+            plot_ordination(myPhyseq, myOrdData, color = 'treatment') +
+              guides(color = guide_legend(title = "Treatment"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          }
+        })
+        # plot the ordination for specifically phylum data
+        orderScaledOrdinationPlot <- reactive ({
+          myList <- get("Order")
+          if(input$rawrareBeta=='Raw Data'){
+            myPhyseq <- myList$physeq
+          }
+          else{
+            myPhyseq <- myList$physeqRare
+          }
+          
+          myOrdData <- ordinate(myPhyseq, method=input$ordMethod, distance=input$distMeasure)
+          
+          if(input$samptreat=='Sample'){
+            plot_ordination(myPhyseq, myOrdData, color = 'sample') +
+              # change the axis title
+              guides(color = guide_legend(title = "Sample"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          } else if (input$samptreat=='Treatment'){
+            plot_ordination(myPhyseq, myOrdData, color = 'treatment') +
+              guides(color = guide_legend(title = "Treatment"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          }
+        })
+        
+        # plot the ordination for specifically phylum data
+        familyScaledOrdinationPlot <- reactive ({
+          myList <- get("Family")
+          if(input$rawrareBeta=='Raw Data'){
+            myPhyseq <- myList$physeq
+          }
+          else{
+            myPhyseq <- myList$physeqRare
+          }
+          
+          myOrdData <- ordinate(myPhyseq, method=input$ordMethod, distance=input$distMeasure)
+          
+          if(input$samptreat=='Sample'){
+            plot_ordination(myPhyseq, myOrdData, color = 'sample') +
+              # change the axis title
+              guides(color = guide_legend(title = "Sample"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          } else if (input$samptreat=='Treatment'){
+            plot_ordination(myPhyseq, myOrdData, color = 'treatment') +
+              guides(color = guide_legend(title = "Treatment"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              #coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          }
+        })
+        
+        # plot the ordination without scaling all axes to be equal
+        # this may cause some oddly sized plots based on the input data
+        whichUnscaledOrdinationPlot <- reactive ({
+          if(input$samptreat=='Sample'){
+            plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'sample') +
+              # change the axis title
+              guides(color = guide_legend(title = "Sample"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              coord_fixed()+ # coord-fix may cause some oddly size plots 
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          } else if (input$samptreat=='Treatment'){
+            plot_ordination(whichPhySeq(), whichOrdinationData(), color = 'treatment') +
+              guides(color = guide_legend(title = "Treatment"))+
+              stat_ellipse(type='t')+
+              theme_bw()+
+              coord_fixed()+
+              theme(
+                axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
+                axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
+                axis.text.x = element_text(size = 14),   
+                axis.text.y = element_text(size = 14),   
+                legend.title = element_text(size = 16, , face="bold"),  
+                legend.text = element_text(size = 14),
+              )
+          }
+        })
+        
+        
+        # make the ordination caption which displays the NMDS stress value
+        whichOrdinationCaption <- reactive({
+          ordData <- whichOrdinationData()
+          if(input$ordMethod=='NMDS'){
+            ordCap <- paste("<p class='text-light'>NMDS results: stress =", round(ordData$stress, digits=4), "</p>")
+            ordCap <- toString(ordCap)
+          }
+          # may need to include an else statement here for other ordination methods
+        })
+        
+        # plot the scaled and unscaled ordination plots in the UI with the caption
+        output$scaledOrdPlot <- renderPlot({whichScaledOrdinationPlot()})
+        output$unscaledOrdPlot <- renderPlot({whichUnscaledOrdinationPlot()})
+        output$phylumBeta <- renderPlot({phylumScaledOrdinationPlot()})
+        output$classBeta <- renderPlot({classScaledOrdinationPlot()})
+        output$orderBeta <- renderPlot({orderScaledOrdinationPlot()})
+        output$familyBeta <- renderPlot({familyScaledOrdinationPlot()})
+        output$ordinationCaption <-renderUI({HTML(whichOrdinationCaption())})
+        
+        # Functionality for downloading the scaled Beta Diversity plot
+        output$downloadBetaScaled <- downloadHandler(
+          filename = function() {
+            paste("scaled_beta_diversity_plot.png", sep="")
+          }, 
+          content = function(file) {
+            png(file=file)
+            plot(whichScaledOrdinationPlot())
+            dev.off()
+          }
+        )
+        
+        # Functionality for downloading the unscaled Beta Diversity plot
+        output$downloadBetaUnscaled <- downloadHandler(
+          filename = function() {
+            paste("unscaled_beta_diversity_plot.png", sep="")
+          }, 
+          content = function(file) {
+            png(file=file)
+            plot(whichUnscaledOrdinationPlot())
+            dev.off()
+          }
+        )
+        
+        # function to create permutational multivariate analysis of variance (permanova) 
+        # data for the beta diversity tab. 
+        # Returns: a table containing adonis results
+        whichPermanova <- reactive({
+          taxa <- input$taxonBetaTest
+          myList <- get(taxa)
+          if(input$rawrareBeta == 'Raw Data'){
+            permMethod <- myList$OTU_t
+          }
+          else{
+            permMethod <- myList$otuRarefy_t
+          }
+          
+          whichDist <- input$distMeasure
+          # use adonis2 function to analyze the variance among distance matrices
+          permaOut <- adonis2(permMethod ~ treatment, data = metaGlobal, method=whichDist)
+          
+          # format the permanova results as a dataframe
+          permanovaResults <- as.data.frame(permaOut)
+          # update the first rowname
+          rownames(permanovaResults)[1] <- "Treatment"
+          return(permanovaResults)
+        })
+        output$betaPermanova <- renderTable({whichPermanova()}, rownames=TRUE,
+                                            striped=TRUE, bordered=TRUE)
+        }
     }
     # close the observe event
   })
