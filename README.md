@@ -40,8 +40,13 @@ Project Dependencies:
 </ul>
 
 <h3>App Deployment:</h3>
-This app was deployed to a server using <a href="https://www.shinyapps.io" target="_blank"> shinyapps.io</a> <br>
-<a href="https://www.youtube.com/watch?v=1g7IAUWD7P0&t=2s" target="_blank"> Tutorial</a> for running the app locally and deploying to shinyapps.io server 
+This app was deployed to a server using <a href="https://www.shinyapps.io" target="_blank"> shinyapps.io</a> <br> <br>
+<a href="https://www.youtube.com/watch?v=1g7IAUWD7P0&t=2s" target="_blank"> Tutorial</a> for running the app locally and deploying to shinyapps.io server <br>
+<p align="left">
+  <a href="https://www.youtube.com/watch?v=1g7IAUWD7P0&t=2s">
+    <img src="https://img.youtube.com/vi/1g7IAUWD7P0/0.jpg" alt="Watch the video">
+  </a>
+</p>
 
 <h3>Contact:</h3>
 For questions regarding this software, please contact <strong>Regina McGrane</strong> (University of Iowa, Microbiology & Immunology) at regina-mcgrane@uiowa.edu
