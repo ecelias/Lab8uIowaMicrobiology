@@ -37,9 +37,11 @@ Project Dependencies:
   <li>rsconnect, version=1.3.4</li>
   <li>igraph, version=2.1.2</li>
   <li>purr, version=1.0.2</li>
-  <li>BiodiversityR, version=2.17-1.1</li>
 </ul>
-This app was deployed to a server using <a href="https://www.shinyapps.io" target="_blank"> shinyapps.io</a>
+
+<h3>App Deployment:</h3>
+This app was deployed to a server using <a href="https://www.shinyapps.io" target="_blank"> shinyapps.io</a> <br>
+<a href="https://www.youtube.com/watch?v=1g7IAUWD7P0&t=2s" target="_blank"> Tutorial</a> for running the app locally and deploying to shinyapps.io server 
 
 <h3>Contact:</h3>
 For questions regarding this software, please contact <strong>Regina McGrane</strong> (University of Iowa, Microbiology & Immunology) at regina-mcgrane@uiowa.edu
