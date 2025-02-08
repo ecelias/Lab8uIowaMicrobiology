@@ -2,9 +2,9 @@
 
 <h3> View the App </h3>
 The shiny app can be accessed from this <a href="https://ecelias.shinyapps.io/Lab8uIowaMicrobiology/" target="_blank">link.</a> <br>
-Please use the files linked below if you would like to try this Shiny app:<br>
+Please use the files linked below if you would like to try this Shiny app:<br> <br>
 <a href="https://github.com/ecelias/Lab8uIowaMicrobiology/blob/main/level5_example.csv" target="_blank"> Level 5 File Example </a><br>
-<a href="https://github.com/ecelias/Lab8uIowaMicrobiology/blob/main/metadata_example.csv" target="_blank"> Metadata File Example </a><br>
+<a href="https://github.com/ecelias/Lab8uIowaMicrobiology/blob/main/metadata_example.csv" target="_blank"> Metadata File Example </a><br><br>
 **Please note, If viewing the app from the above link, it was deployed on a free shiny.io plan so if usage exceeds 25 hours per month, the app will not be available. 
 
 <h3>Project Overview</h3>
@@ -41,7 +41,7 @@ Project Dependencies:
 
 <h3>App Deployment:</h3>
 This app was deployed to a server using <a href="https://www.shinyapps.io" target="_blank"> shinyapps.io</a> <br> <br>
-<a href="https://www.youtube.com/watch?v=1g7IAUWD7P0&t=2s" target="_blank"> Tutorial</a> for running the app locally and deploying to shinyapps.io server <br>
+<a href="https://www.youtube.com/watch?v=1g7IAUWD7P0&t=2s" target="_blank"> Tutorial</a> for running the app locally and deploying to shinyapps.io server <br><br>
 <p align="left">
   <a href="https://www.youtube.com/watch?v=1g7IAUWD7P0&t=2s">
     <img src="https://img.youtube.com/vi/1g7IAUWD7P0/0.jpg" alt="Watch the video">
