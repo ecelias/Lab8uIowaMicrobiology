@@ -1,0 +1,42 @@
+# Base R Shiny image
+FROM rocker/r-ver:4.4.2
+
+# Install system dependencies for the R packages
+RUN apt-get update && apt-get install -y \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    libgmp-dev \
+    libmpfr-dev \
+    libudunits2-dev \
+    libgsl-dev \
+    libxt-dev \
+    libglu1-mesa-dev \
+    libgfortran5 \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libtiff5-dev \
+    libjpeg-dev \
+    pandoc \
+    pandoc-citeproc
+
+# Install BiocManager
+RUN R -e "install.packages('BiocManager')"
+
+# Install all the other R packages
+COPY packages.R /packages.R
+RUN Rscript /packages.R
+
+# Copy the Shiny app files
+COPY . /srv/shiny-server/
+
+# Set working directory
+WORKDIR /srv/shiny-server/
+
+# Expose port for Shiny app
+EXPOSE 3838
+
+# Start Shiny app
+CMD ["R", "-e", "shiny::runApp('.', host='0.0.0.0', port=3838)"]
