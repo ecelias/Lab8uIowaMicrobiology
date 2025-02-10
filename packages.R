@@ -1,5 +1,15 @@
-install.packages(c("shiny", "ggplot2", "tidyverse", "BiocManager", "vegan", 
-                   "data.table", "readr", "broom", "shinycssloaders", "bslib", 
-                   "igraph", "shinyWidgets"))
+remotes::install_version('shiny', version = '1.10.0') 
+remotes::install_version('tidyverse', version = '2.0.0')
+remotes::install_version('ggplot2', version = '3.5.1')  
+remotes::install_version('vegan', version = '2.6-10')  
+remotes::install_version('data.table', version = '1.16.4')  
+remotes::install_version('readr', version = '2.1.5')  
+remotes::install_version('broom', version = '1.0.7')  
+remotes::install_version('shinycssloaders', version = '1.1.0')  
+remotes::install_version('bslib', version = '0.8.0')  
+remotes::install_version('rsconnect', version = '1.3.4')  
+remotes::install_version('igraph', version = '2.1.2')  
+remotes::install_version('purr', version = '1.0.2')  
+remotes::install_version('BiocManager', version = '3.20')  
 
 BiocManager::install(c("phyloseq", "phyloseqCompanion"))

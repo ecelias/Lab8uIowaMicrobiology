@@ -22,10 +22,10 @@ RUN apt-get update && apt-get install -y \
     pandoc \
     pandoc-citeproc
 
-# Install BiocManager
-RUN R -e "install.packages('BiocManager')"
+# Install the correct R packages versions
+RUN R -e "install.packages('remotes')"
 
-# Install all the other R packages
+# Install the BiocManger paclages
 COPY packages.R /packages.R
 RUN Rscript /packages.R
 
