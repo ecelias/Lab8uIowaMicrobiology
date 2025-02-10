@@ -590,11 +590,8 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            h2("Taxonomy Bar Graph",class="text-light"),
-                          card(
                             plotOutput('bargraph',width='100%', height='auto') %>%
                               withSpinner(color='thistle'),
-                            full_screen = TRUE
-                           ), 
                           downloadButton("downloadBar", "Download Plot", class="btn-sm")
                          )
                        )
@@ -782,8 +779,8 @@ ui <- fluidPage(
                            ), 
                            tags$hr(),
                            htmlOutput('ordinationCaption'),
-                           downloadButton("downloadBetaScaled", "Download Unscaled Plot", class="btn-sm"),
-                           downloadButton("downloadBetaUnscaled", "Download Scaled Plot", class="btn-sm"),
+                           downloadButton("downloadBetaUnscaled", "Download Unscaled Plot", class="btn-sm"),
+                           downloadButton("downloadBetaScaled", "Download Scaled Plot", class="btn-sm"),
                            tags$hr(), 
                            h5("PERMANOVA Result:", class="text-light"),
                            tableOutput('betaPermanova')
@@ -992,7 +989,9 @@ server <- function(input, output) {
             paste("initial_rarefaction_plot.png", sep="")
           }, 
           content = function(file) {
-            png(file=file)
+            width <- 2000
+            height <- 2000
+            png(file=file, width=width, height=height, res=150)
             plot(whichInitialRarefaction())
             dev.off()
           }
@@ -1019,7 +1018,9 @@ server <- function(input, output) {
             paste("even_rarefaction_plot.png", sep="")
             }, 
           content = function(file) {
-            png(file=file)
+            width <- 2000
+            height <- 2000 
+            png(file=file, width=width, height=height, res=150)
             plot(whichEvenRarefaction())
             dev.off()
           }
@@ -1049,7 +1050,7 @@ server <- function(input, output) {
                 labs(fill=taxa, y='Absolute Abundance')+
                 facet_grid(.~treatment, space='free_x', scales='free_x')+
                 theme(legend.position='bottom')+
-                guides(fill=guide_legend(ncol=1)) +
+                guides(fill=guide_legend(ncol=2)) +
                 ggtitle("")+
                 # customizes text elements 
                 theme(
@@ -1057,8 +1058,8 @@ server <- function(input, output) {
                   axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                   axis.text.x = element_text(size = 14, angle=45, vjust=0.5),   
                   axis.text.y = element_text(size = 14),   
-                  legend.title = element_text(size = 16, , face="bold"),  
-                  legend.text = element_text(size = 12),
+                  legend.title = element_text(size = 14, , face="bold"),  
+                  legend.text = element_text(size = 10),
                   legend.title.position = "top",
                   strip.text = element_text(size = 16), 
                   plot.title = element_text(size = 18, hjust = 0.5, face="bold")
@@ -1070,16 +1071,16 @@ server <- function(input, output) {
                 labs(fill=taxa, y='Relative Abundance')+
                 facet_grid(.~treatment, space='free_x', scales='free_x')+
                 theme(legend.position='bottom')+
-                guides(fill=guide_legend(ncol=1))+
+                guides(fill=guide_legend(ncol=2))+
                 theme(
                   axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
                   axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                   axis.text.x = element_text(size = 14, angle=45, vjust=0.5),   
                   axis.text.y = element_text(size = 14),   
-                  legend.title = element_text(size = 16, , face="bold"),  
-                  legend.text = element_text(size = 14),
-                  strip.text = element_text(size = 16)
-                  #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+                  legend.title = element_text(size = 14, , face="bold"),  
+                  legend.text = element_text(size = 10),
+                  strip.text = element_text(size = 16),
+                  plot.title = element_text(size = 18, hjust = 0.5, face="bold")
                 )
             }
           } else{
@@ -1089,7 +1090,7 @@ server <- function(input, output) {
                 labs(fill=taxa, y='Absolute Abundance')+
                 facet_grid(.~treatment, space='free_x', scales='free_x')+
                 theme(legend.position='none')+
-                guides(fill=guide_legend(ncol=1)) +
+                guides(fill=guide_legend(ncol=2)) +
                 ggtitle("")+
                 theme(
                   axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
@@ -1106,14 +1107,14 @@ server <- function(input, output) {
                 labs(fill=taxa, y='Relative Abundance')+
                 facet_grid(.~treatment, space='free_x', scales='free_x')+
                 theme(legend.position='none')+
-                guides(fill=guide_legend(ncol=1))+
+                guides(fill=guide_legend(ncol=2))+
                 theme(
                   axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
                   axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                   axis.text.x = element_text(size = 14, angle=45, vjust=0.5),   
                   axis.text.y = element_text(size = 14),   
-                  strip.text = element_text(size = 16)
-                  #plot.title = element_text(size = 18, hjust = 0.5, face="bold")
+                  strip.text = element_text(size = 16),
+                  plot.title = element_text(size = 18, hjust = 0.5, face="bold")
                 )
             }            
           }
@@ -1138,7 +1139,9 @@ server <- function(input, output) {
             paste("taxa_bargraph_plot.png", sep="")
           }, 
           content = function(file) {
-            png(file=file)
+            width <- 5000
+            height <- 5000
+            png(file=file, width=width, height=height, res=300)
             plot(whichBarGraph(), height=barGraphHeight())
             dev.off()
           }
@@ -1224,7 +1227,9 @@ server <- function(input, output) {
             paste("taxa_heatmap_plot.png", sep="")
           }, 
           content = function(file) {
-            png(file=file)
+            width <- 2000
+            height <- 2000 
+            png(file=file, width=width, height=height, res=150)
             plot(heatmap(), height=heatmapHeight())
             dev.off()
           }
@@ -1424,7 +1429,9 @@ server <- function(input, output) {
             paste("alpha_diversity_plot.png", sep="")
           }, 
           content = function(file) {
-            png(file=file)
+            width <- 2000
+            height <- 2000 
+            png(file=file, width=width, height=height, res=150)
             plot(whichAlphaPlot())
             dev.off()
           }
@@ -1832,7 +1839,9 @@ server <- function(input, output) {
             paste("scaled_beta_diversity_plot.png", sep="")
           }, 
           content = function(file) {
-            png(file=file)
+            width <- 2000
+            height <- 2000 
+            png(file=file, width=width, height=height, res=150)
             plot(whichScaledOrdinationPlot())
             dev.off()
           }
@@ -1844,7 +1853,9 @@ server <- function(input, output) {
             paste("unscaled_beta_diversity_plot.png", sep="")
           }, 
           content = function(file) {
-            png(file=file)
+            width <- 2000
+            height <- 2000 
+            png(file=file, width=width, height=height, res=150)
             plot(whichUnscaledOrdinationPlot())
             dev.off()
           }
