@@ -1628,12 +1628,14 @@ server <- function(input, output) {
                 axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                 axis.text.x = element_text(size = 14),   
                 axis.text.y = element_text(size = 14),   
-                legend.title = element_text(size = 16, , face="bold"),  
-                legend.text = element_text(size = 14),
+                legend.title = element_text(size = 14, , face="bold"),  
+                legend.text = element_text(size = 10),
+                legend.position = 'bottom'
               )
           } else if (input$samptreat=='Treatment'){
             plot_ordination(myPhyseq, myOrdData, color = 'treatment') +
-              guides(color = guide_legend(title = "Treatment"))+
+              guides(color = guide_legend(title = "Treatment", 
+                                          title.position = "top")) +
               stat_ellipse(type='t')+
               theme_bw()+
               #coord_fixed()+
@@ -1642,8 +1644,9 @@ server <- function(input, output) {
                 axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                 axis.text.x = element_text(size = 14),   
                 axis.text.y = element_text(size = 14),   
-                legend.title = element_text(size = 16, , face="bold"),  
-                legend.text = element_text(size = 14),
+                legend.title = element_text(size = 14, , face="bold"),  
+                legend.text = element_text(size = 10),
+                legend.position = 'bottom'
               )
           }
         })
@@ -1671,12 +1674,14 @@ server <- function(input, output) {
                 axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                 axis.text.x = element_text(size = 14),   
                 axis.text.y = element_text(size = 14),   
-                legend.title = element_text(size = 16, , face="bold"),  
-                legend.text = element_text(size = 14),
+                legend.title = element_text(size = 14, , face="bold"),  
+                legend.text = element_text(size = 10),
+                legend.position = 'bottom'
               )
           } else if (input$samptreat=='Treatment'){
             plot_ordination(myPhyseq, myOrdData, color = 'treatment') +
-              guides(color = guide_legend(title = "Treatment"))+
+              guides(color = guide_legend(title = "Treatment", 
+                                          title.position = "top")) +
               stat_ellipse(type='t')+
               theme_bw()+
               #coord_fixed()+
@@ -1684,13 +1689,14 @@ server <- function(input, output) {
                 axis.title.x = element_text(size = 16, margin = margin(t = 10), face="bold"),  
                 axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                 axis.text.x = element_text(size = 14),   
-                axis.text.y = element_text(size = 14),   
-                legend.title = element_text(size = 16, , face="bold"),  
-                legend.text = element_text(size = 14),
+                axis.text.y = element_text(size = 10),   
+                legend.title = element_text(size = 14, , face="bold"),  
+                legend.text = element_text(size = 10),
+                legend.position = 'bottom'
               )
           }
         })
-        # plot the ordination for specifically phylum data
+        # plot the ordination for specifically order data
         orderScaledOrdinationPlot <- reactive ({
           myList <- get("Order")
           if(input$rawrareBeta=='Raw Data'){
@@ -1714,12 +1720,14 @@ server <- function(input, output) {
                 axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                 axis.text.x = element_text(size = 14),   
                 axis.text.y = element_text(size = 14),   
-                legend.title = element_text(size = 16, , face="bold"),  
-                legend.text = element_text(size = 14),
+                legend.title = element_text(size = 14, , face="bold"),  
+                legend.text = element_text(size = 10),
+                legend.position = 'bottom'
               )
           } else if (input$samptreat=='Treatment'){
             plot_ordination(myPhyseq, myOrdData, color = 'treatment') +
-              guides(color = guide_legend(title = "Treatment"))+
+              guides(color = guide_legend(title = "Treatment", 
+                                          title.position = "top")) +
               stat_ellipse(type='t')+
               theme_bw()+
               #coord_fixed()+
@@ -1728,13 +1736,14 @@ server <- function(input, output) {
                 axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                 axis.text.x = element_text(size = 14),   
                 axis.text.y = element_text(size = 14),   
-                legend.title = element_text(size = 16, , face="bold"),  
-                legend.text = element_text(size = 14),
+                legend.title = element_text(size = 14, , face="bold"),  
+                legend.text = element_text(size = 10),
+                legend.position = 'bottom'
               )
           }
         })
         
-        # plot the ordination for specifically phylum data
+        # plot the ordination for specifically family data
         familyScaledOrdinationPlot <- reactive ({
           myList <- get("Family")
           if(input$rawrareBeta=='Raw Data'){
@@ -1758,12 +1767,14 @@ server <- function(input, output) {
                 axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                 axis.text.x = element_text(size = 14),   
                 axis.text.y = element_text(size = 14),   
-                legend.title = element_text(size = 16, , face="bold"),  
-                legend.text = element_text(size = 14),
+                legend.title = element_text(size = 14, , face="bold"),  
+                legend.text = element_text(size = 10),
+                legend.position = 'bottom'
               )
           } else if (input$samptreat=='Treatment'){
             plot_ordination(myPhyseq, myOrdData, color = 'treatment') +
-              guides(color = guide_legend(title = "Treatment"))+
+              guides(color = guide_legend(title = "Treatment", 
+                                          title.position = "top")) +
               stat_ellipse(type='t')+
               theme_bw()+
               #coord_fixed()+
@@ -1772,8 +1783,9 @@ server <- function(input, output) {
                 axis.title.y = element_text(size = 16, margin = margin(r = 10), face="bold"),  
                 axis.text.x = element_text(size = 14),   
                 axis.text.y = element_text(size = 14),   
-                legend.title = element_text(size = 16, , face="bold"),  
-                legend.text = element_text(size = 14),
+                legend.title = element_text(size = 14, , face="bold"),  
+                legend.text = element_text(size = 10),
+                legend.position = 'bottom'
               )
           }
         })
